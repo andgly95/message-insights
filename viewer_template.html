@@ -560,7 +560,7 @@
         .search-match {color: var(--blue-bubble); padding: 4px 0;}
         .search-no-match {color: var(--text-tertiary); padding: 4px 0;}
 
-        .stat-grid {display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;}
+        .stat-grid {display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px;}
         .stat-box {background: var(--bg-tertiary); padding: 8px; border-radius: 6px; text-align: center;}
         .stat-val {font-size: 16px; font-weight: 700; color: var(--text-primary);}
         .stat-lbl {font-size: 10px; color: var(--text-secondary); margin-top: 2px;}
@@ -581,7 +581,7 @@
         .phrase {font-size: 12px; padding: 3px 0; color: var(--text-secondary);}
         .phrase b {color: var(--text-primary); font-weight: 600;}
 
-        .emoji-grid {display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px;}
+        .emoji-grid {display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; max-width: 100%; overflow: hidden;}
         .emoji-box {text-align: center; padding: 8px; background: var(--bg-primary); border-radius: 6px;}
         .emoji {font-size: 24px;}
         .e-count {font-size: 11px; color: var(--text-secondary); margin-top: 4px;}
@@ -591,9 +591,9 @@
         .heat-labels {display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary);}
 
         .day-chart {display: flex; gap: 8px; margin-top: 8px; height: 100px; align-items: flex-end;}
-        .day-bar {flex: 1; display: flex; flex-direction: column; align-items: center; position: relative;}
-        .day-fill {width: 100%; background: var(--blue-bubble); border-radius: 4px 4px 0 0; min-height: 2px;}
-        .day-label {font-size: 10px; color: var(--text-secondary); margin-top: 4px;}
+        .day-bar {flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative;}
+        .day-fill {width: 100%; background: var(--blue-bubble); border-radius: 4px 4px 0 0; margin-bottom: 4px;}
+        .day-label {font-size: 10px; color: var(--text-secondary);}
         .day-val {font-size: 11px; color: var(--text-primary); font-weight: 600; position: absolute; top: -18px;}
 
         .time-stats {font-size: 11px; color: var(--text-secondary); margin-top: 12px; line-height: 1.5;}
@@ -681,7 +681,7 @@
 
     <!-- Message data will be injected here by the Python script -->
     <script>
-        window.IMESSAGE_DATA = {};;
+        window.IMESSAGE_DATA = {};
     </script>
 
     <script>
@@ -978,9 +978,60 @@
 
             // Show and update info panel
             updateInfoPanel(conv);
+
+            // Handle analysis section persistence
+            const analysisSection = document.getElementById('analysisSection');
+            if (conv.analysis) {
+                // Conversation has analysis data - show and update it
+                displayAnalysis(conv.analysis);
+            } else if (analysisSection) {
+                // No analysis data - remove the section
+                analysisSection.remove();
+            }
         }
 
         // Update info panel with conversation stats
+        // Helper function to check if sender looks valid
+        function isValidSender(sender) {
+            if (!sender) return false;
+
+            // Filter out obvious non-senders
+            if (sender.startsWith('Edited ') ||
+                sender.startsWith('Tapbacks:') ||
+                sender.includes('This message responded to') ||
+                sender.startsWith('attachments/')) {
+                return false;
+            }
+
+            // Filter out numbered lists and titles with colons or quotes
+            if (/^\d+\./.test(sender) || // Starts with "1.", "2.", etc.
+                sender.includes(':') ||
+                sender.includes('"') ||
+                sender.includes('"') ||
+                sender.includes('"') ||
+                sender.includes('Episode') ||
+                sender.includes('Chapter')) {
+                return false;
+            }
+
+            // Filter out things that look like message content (sentences)
+            // Names typically don't contain common words like "is", "so", "the", etc.
+            const lowerSender = sender.toLowerCase();
+            const contentWords = ['is', 'are', 'was', 'were', 'so', 'the', 'this', 'that', 'these', 'those', 'very', 'really'];
+            const hasContentWords = contentWords.some(word => {
+                // Check for word boundaries to avoid false positives (e.g., "Chris" contains "is")
+                const regex = new RegExp(`\\b${word}\\b`, 'i');
+                return regex.test(sender);
+            });
+
+            if (hasContentWords) return false;
+
+            // Filter out very long strings (likely message content)
+            if (sender.length > 50) return false;
+
+            return true;
+        }
+
         function updateInfoPanel(conv) {
             try {
                 const panel = document.getElementById('infoPanel');
@@ -1038,47 +1089,6 @@
                     totalWords += msg.content.split(/\s+/).filter(w => w.length > 0).length;
                 }
             });
-
-            // Helper function to check if sender looks valid
-            function isValidSender(sender) {
-                if (!sender) return false;
-
-                // Filter out obvious non-senders
-                if (sender.startsWith('Edited ') ||
-                    sender.startsWith('Tapbacks:') ||
-                    sender.includes('This message responded to') ||
-                    sender.startsWith('attachments/')) {
-                    return false;
-                }
-
-                // Filter out numbered lists and titles with colons or quotes
-                if (/^\d+\./.test(sender) || // Starts with "1.", "2.", etc.
-                    sender.includes(':') ||
-                    sender.includes('"') ||
-                    sender.includes('"') ||
-                    sender.includes('"') ||
-                    sender.includes('Episode') ||
-                    sender.includes('Chapter')) {
-                    return false;
-                }
-
-                // Filter out things that look like message content (sentences)
-                // Names typically don't contain common words like "is", "so", "the", etc.
-                const lowerSender = sender.toLowerCase();
-                const contentWords = ['is', 'are', 'was', 'were', 'so', 'the', 'this', 'that', 'these', 'those', 'very', 'really'];
-                const hasContentWords = contentWords.some(word => {
-                    // Check for word boundaries to avoid false positives (e.g., "Chris" contains "is")
-                    const regex = new RegExp(`\\b${word}\\b`, 'i');
-                    return regex.test(sender);
-                });
-
-                if (hasContentWords) return false;
-
-                // Filter out very long strings (likely message content)
-                if (sender.length > 50) return false;
-
-                return true;
-            }
 
             // Count messages by participant
             const participantCounts = {};
@@ -1442,7 +1452,7 @@
                     <div class="stat-box"><div class="stat-val">${analysis.totalWords.toLocaleString()}</div><div class="stat-lbl">Words</div></div>
                     <div class="stat-box"><div class="stat-val">${analysis.uniqueWords.toLocaleString()}</div><div class="stat-lbl">Unique</div></div>
                     <div class="stat-box"><div class="stat-val">${Math.round(analysis.avgMsgLength)}</div><div class="stat-lbl">Avg Len</div></div>
-                    <div class="stat-box"><div class="stat-val">${formatTime(analysis.avgResponseTime)}</div><div class="stat-lbl">Response</div></div>
+                    <div class="stat-box"><div class="stat-val">${formatDuration(analysis.avgResponseTime)}</div><div class="stat-lbl">Response</div></div>
                 </div>
 
                 <div class="section" onclick="toggleSection(this)"><div class="section-title">🔤 Top Words<span class="arrow">▼</span></div><div class="section-body">`;
@@ -1469,18 +1479,21 @@
             html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">⏰ Time Patterns<span class="arrow">▼</span></div><div class="section-body" style="display:none">`;
             html += `<div class="sub-title">Hour of Day:</div>` + renderHourHeatmap(analysis.messagesByHour);
             html += `<div class="sub-title">Day of Week:</div>` + renderDayChart(analysis.messagesByDayOfWeek);
-            html += `<div class="time-stats">Most active: ${getMostActiveDay(analysis.messagesByDate)}<br>Median response: ${formatTime(analysis.medianResponseTime)}</div>`;
+            html += `<div class="time-stats">Most active: ${getMostActiveDay(analysis.messagesByDate)}<br>Median response: ${formatDuration(analysis.medianResponseTime)}</div>`;
             html += `</div></div>`;
 
             const totSent = analysis.sentimentScores.positive + analysis.sentimentScores.negative + analysis.sentimentScores.neutral;
             const posPct = ((analysis.sentimentScores.positive / totSent) * 100).toFixed(0);
             const negPct = ((analysis.sentimentScores.negative / totSent) * 100).toFixed(0);
+            const neuPct = ((analysis.sentimentScores.neutral / totSent) * 100).toFixed(0);
+            const posEnd = posPct;
+            const neuEnd = parseInt(posPct) + parseInt(neuPct);
             html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">😊😢 Sentiment<span class="arrow">▼</span></div><div class="section-body" style="display:none">`;
-            html += `<div class="sent-bar" style="background:linear-gradient(90deg,#4ade80 0%,#4ade80 ${posPct}%,#f87171 ${posPct}%,#f87171 100%)"></div>`;
-            html += `<div class="sent-label">${posPct}% Positive · ${negPct}% Negative</div></div></div>`;
+            html += `<div class="sent-bar" style="background:linear-gradient(90deg,#4ade80 0%,#4ade80 ${posEnd}%,#6b7280 ${posEnd}%,#6b7280 ${neuEnd}%,#f87171 ${neuEnd}%,#f87171 100%)"></div>`;
+            html += `<div class="sent-label">${posPct}% Positive · ${neuPct}% Neutral · ${negPct}% Negative</div></div></div>`;
 
             html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">👥 Participants<span class="arrow">▼</span></div><div class="section-body" style="display:none">`;
-            Object.entries(analysis.participantStats).filter(([n]) => n && n.length < 50).sort((a, b) => b[1].count - a[1].count).forEach(([n, s]) => {
+            Object.entries(analysis.participantStats).filter(([n]) => isValidSender(n)).sort((a, b) => b[1].count - a[1].count).forEach(([n, s]) => {
                 html += `<div class="part-box"><div class="part-name">${escapeHtml(n)}</div><div class="part-stats">${s.count} msg · ${Math.round(s.avgLength)} len · ${s.questions}? · ${s.emojis}😊</div></div>`;
             });
             html += `</div></div>`;
@@ -1513,7 +1526,8 @@
             }
         }
 
-        function formatTime(minutes) {
+        function formatDuration(minutes) {
+            if (isNaN(minutes) || minutes === null) return '-';
             if (minutes < 1) return `${Math.round(minutes * 60)}s`;
             if (minutes < 60) return `${Math.round(minutes)}m`;
             const hours = Math.floor(minutes / 60);
@@ -1536,11 +1550,11 @@
 
         function renderDayChart(dayData) {
             const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-            const max = Math.max(...Object.values(dayData));
+            const max = Math.max(...Object.values(dayData), 1); // Ensure max is at least 1
             let html = '<div class="day-chart">';
             for (let d = 0; d < 7; d++) {
                 const count = dayData[d] || 0;
-                const height = (count / max) * 100;
+                const height = Math.max((count / max) * 100, 3); // Minimum 3% height for visibility
                 html += `<div class="day-bar"><div class="day-fill" style="height:${height}%"></div><div class="day-label">${days[d]}</div><div class="day-val">${count}</div></div>`;
             }
             html += '</div>';

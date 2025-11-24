@@ -21,8 +21,8 @@
             --blue-bubble: #0b84fe;
             --gray-bubble: #3a3a3c;
             --border-color: #3d3d3d;
-            --sidebar-width: 280px;
-            --info-panel-width: 240px;
+            --sidebar-width: 300px;
+            --info-panel-width: 260px;
         }
 
         body {
@@ -426,7 +426,380 @@
 
         .info-panel-header {
             padding: 16px;
-        window.IMESSAGE_DATA = {};
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-panel-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .info-panel-section {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-panel-section h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .info-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .info-stat-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .info-stat-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .process-button {
+            width: 100%;
+            padding: 12px;
+            background: var(--blue-bubble);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .process-button:hover {
+            opacity: 0.8;
+        }
+
+        .process-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .participant-list {
+            list-style: none;
+        }
+
+        .participant-item {
+            padding: 6px 0;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .participant-name {
+            color: var(--text-primary);
+        }
+
+        .participant-count {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        /* Analysis/Word Frequency Styles */
+        .word-list {
+            margin-top: 8px;
+        }
+
+        .word-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 13px;
+        }
+
+        .word-label {
+            min-width: 80px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .word-bar-container {
+            flex: 1;
+            height: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .word-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--blue-bubble), #0a6fd9);
+            transition: width 0.3s ease;
+        }
+
+        .word-count {
+            min-width: 40px;
+            text-align: right;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        /* Enhanced Analysis UI */
+        .analysis-header {display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;}
+        .analysis-header h4 {margin: 0; font-size: 16px;}
+        .mini-btn {padding: 4px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 12px;}
+        .mini-btn:hover {background: var(--bg-primary);}
+
+        .search-input {width: 100%; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 13px; margin-bottom: 8px;}
+        .search-result {min-height: 20px; font-size: 12px; margin-bottom: 8px;}
+        .search-match {color: var(--blue-bubble); padding: 4px 0;}
+        .search-no-match {color: var(--text-tertiary); padding: 4px 0;}
+
+        .stat-grid {display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px;}
+        .stat-box {background: var(--bg-tertiary); padding: 8px; border-radius: 6px; text-align: center;}
+        .stat-val {font-size: 16px; font-weight: 700; color: var(--text-primary);}
+        .stat-lbl {font-size: 10px; color: var(--text-secondary); margin-top: 2px;}
+
+        .section {background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 8px; overflow: hidden;}
+        .section-title {padding: 10px 12px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;}
+        .section-title:hover {background: var(--bg-primary);}
+        .arrow {font-size: 10px; color: var(--text-secondary);}
+        .section-body {padding: 0 12px 12px 12px;}
+        .sub-title {font-size: 11px; font-weight: 600; color: var(--text-secondary); margin: 8px 0 4px 0; text-transform: uppercase;}
+
+        .word-row {display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px;}
+        .w-label {min-width: 70px; font-weight: 500;}
+        .w-bar-bg {flex: 1; height: 14px; background: var(--bg-primary); border-radius: 3px; overflow: hidden;}
+        .w-bar {height: 100%; background: linear-gradient(90deg, var(--blue-bubble), #0a6fd9); transition: width 0.3s;}
+        .w-count {min-width: 35px; text-align: right; color: var(--text-secondary); font-size: 11px;}
+
+        .phrase {font-size: 12px; padding: 3px 0; color: var(--text-secondary);}
+        .phrase b {color: var(--text-primary); font-weight: 600;}
+
+        .emoji-grid {display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px;}
+        .emoji-box {text-align: center; padding: 8px; background: var(--bg-primary); border-radius: 6px;}
+        .emoji {font-size: 24px;}
+        .e-count {font-size: 11px; color: var(--text-secondary); margin-top: 4px;}
+
+        .heatmap {display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; margin: 8px 0;}
+        .heat-cell {height: 20px; border-radius: 2px; cursor: pointer;}
+        .heat-labels {display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary);}
+
+        .day-chart {display: flex; gap: 8px; margin-top: 8px; height: 100px; align-items: flex-end;}
+        .day-bar {flex: 1; display: flex; flex-direction: column; align-items: center; position: relative;}
+        .day-fill {width: 100%; background: var(--blue-bubble); border-radius: 4px 4px 0 0; min-height: 2px;}
+        .day-label {font-size: 10px; color: var(--text-secondary); margin-top: 4px;}
+        .day-val {font-size: 11px; color: var(--text-primary); font-weight: 600; position: absolute; top: -18px;}
+
+        .time-stats {font-size: 11px; color: var(--text-secondary); margin-top: 12px; line-height: 1.5;}
+
+        .sent-bar {height: 24px; border-radius: 6px; margin: 8px 0;}
+        .sent-label {font-size: 11px; color: var(--text-secondary); text-align: center;}
+
+        .part-box {padding: 8px; background: var(--bg-primary); border-radius: 6px; margin-bottom: 6px;}
+        .part-name {font-weight: 600; font-size: 13px; margin-bottom: 4px;}
+        .part-stats {font-size: 11px; color: var(--text-secondary);}
+
+        .url-row {font-size: 12px; padding: 4px 0; color: var(--text-secondary);}
+        .url-row b {color: var(--text-primary);}
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>Messages</h1>
+            <input type="text" class="search-box" placeholder="Search conversations..." id="searchBox">
+        </div>
+        <div class="conversation-list" id="conversationList">
+            <div class="loading">Loading conversations...</div>
+        </div>
+        <div class="stats-bar" id="statsBar"></div>
+    </div>
+    <div class="chat-area">
+        <div class="empty-state" id="emptyState">
+            Select a conversation to view messages
+        </div>
+        <div class="chat-header" id="chatHeader" style="display: none;">
+            <div class="avatar" id="chatAvatar">?</div>
+            <div class="chat-header-info">
+                <h2 id="chatName">Conversation</h2>
+                <p id="chatSubtitle"></p>
+            </div>
+        </div>
+        <div class="messages-container" id="messagesContainer" style="display: none;"></div>
+    </div>
+
+    <div class="info-panel" id="infoPanel">
+        <div class="info-panel-header">
+            <h3>Conversation Info</h3>
+        </div>
+
+        <div class="info-panel-section">
+            <h4>Statistics</h4>
+            <div class="info-stat">
+                <span class="info-stat-label">Total Messages</span>
+                <span class="info-stat-value" id="totalMessages">-</span>
+            </div>
+            <div class="info-stat">
+                <span class="info-stat-label">Date Range</span>
+                <span class="info-stat-value" id="dateRange">-</span>
+            </div>
+            <div class="info-stat">
+                <span class="info-stat-label">Duration</span>
+                <span class="info-stat-value" id="duration">-</span>
+            </div>
+            <div class="info-stat">
+                <span class="info-stat-label">Avg per Day</span>
+                <span class="info-stat-value" id="avgPerDay">-</span>
+            </div>
+            <div class="info-stat">
+                <span class="info-stat-label">Total Words</span>
+                <span class="info-stat-value" id="totalWords">-</span>
+            </div>
+        </div>
+
+        <div class="info-panel-section">
+            <h4>Participants</h4>
+            <ul class="participant-list" id="participantList"></ul>
+        </div>
+
+        <div class="info-panel-section">
+            <button class="process-button" id="processButton" onclick="processConversation()">
+                Process & Analyze
+            </button>
+        </div>
+    </div>
+
+    <div class="modal" id="imageModal">
+        <img src="" alt="Full size image" id="modalImage">
+    </div>
+
+    <!-- Message data will be injected here by the Python script -->
+    <script>
+        window.IMESSAGE_DATA = {};;
+    </script>
+
+    <script>
+        let conversations = [];
+        let currentConversation = null;
+
+        // Parse a message file content
+        function parseMessages(content, filename) {
+            const lines = content.split('\n');
+            const messages = [];
+            let i = 0;
+
+            while (i < lines.length) {
+                // Skip empty lines
+                if (!lines[i] || lines[i].trim() === '') {
+                    i++;
+                    continue;
+                }
+
+                // Try to parse timestamp line
+                const timestampMatch = lines[i].match(/^(\w{3} \d{1,2}, \d{4}\s+\d{1,2}:\d{2}:\d{2} [AP]M)(.*)$/);
+                if (timestampMatch) {
+                    const timestamp = timestampMatch[1];
+                    const readInfo = timestampMatch[2].trim();
+
+                    i++;
+                    if (i >= lines.length) break;
+
+                    const sender = lines[i].trim();
+                    i++;
+
+                    // Collect message content (may span multiple lines)
+                    let messageContent = '';
+                    let reactions = [];
+                    let editInfo = '';
+                    let isReply = false;
+
+                    while (i < lines.length) {
+                        const line = lines[i];
+                        const trimmedLine = line.trim();
+
+                        // Check for next message timestamp
+                        if (line.match(/^\w{3} \d{1,2}, \d{4}\s+\d{1,2}:\d{2}:\d{2} [AP]M/)) {
+                            break;
+                        }
+
+                        // Check for tapbacks/reactions
+                        if (line.startsWith('Tapbacks:')) {
+                            i++;
+                            while (i < lines.length && lines[i].trim() && !lines[i].match(/^\w{3} \d{1,2}, \d{4}/)) {
+                                if (lines[i].trim()) {
+                                    reactions.push(lines[i].trim());
+                                }
+                                i++;
+                            }
+                            continue;
+                        }
+
+                        // Check for edit info
+                        if (trimmedLine.startsWith('Edited ')) {
+                            editInfo = trimmedLine;
+                            i++;
+                            continue;
+                        }
+
+                        // Check for reply indicator
+                        if (trimmedLine.includes('This message responded to an earlier message')) {
+                            isReply = true;
+                            i++;
+                            continue;
+                        }
+
+                        // Check for inline response (indented)
+                        if (line.startsWith('    ') && line.match(/^\s+\w{3} \d{1,2}, \d{4}/)) {
+                            // This is an inline response, skip it
+                            i++;
+                            while (i < lines.length && lines[i].startsWith('    ')) {
+                                i++;
+                            }
+                            continue;
+                        }
+
+                        if (line.trim() === '') {
+                            i++;
+                            break;
+                        }
+
+                        messageContent += (messageContent ? '\n' : '') + line;
+                        i++;
+                    }
+
+                    if (messageContent || sender) {
+                        messages.push({
+                            timestamp,
+                            sender,
+                            content: messageContent.trim(),
+                            readInfo: readInfo ? readInfo.replace(/^\s*\(/, '').replace(/\)\s*$/, '') : '',
+                            reactions,
+                            editInfo,
+                            isReply
+                        });
+                    }
+                } else {
+                    i++;
+                }
+            }
+
+            return messages;
+        }
+
+        // Get initials from name
+        function getInitials(name) {
+            if (!name) return '?';
+            const parts = name.replace(/[+\d]/g, '').trim().split(/[\s,]+/).filter(p => p);
+            if (parts.length === 0) {
+                // It's a phone number
+                return '#';
+            }
             return parts.slice(0, 2).map(p => p[0]).join('').toUpperCase();
         }
 

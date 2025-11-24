@@ -1,0 +1,2644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message Insights</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #3d3d3d;
+            --text-primary: #ffffff;
+            --text-secondary: #8e8e93;
+            --text-tertiary: #636366;
+            --blue-bubble: #0b84fe;
+            --gray-bubble: #3a3a3c;
+            --border-color: #3d3d3d;
+            --sidebar-width: 300px;
+            --info-panel-width: 260px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .sidebar-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+            outline: none;
+        }
+
+        .search-box::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .conversation-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .conversation-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.15s;
+        }
+
+        .conversation-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .conversation-item.active {
+            background: var(--blue-bubble);
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #5856d6 0%, #007aff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 18px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+
+        .avatar.group {
+            background: linear-gradient(135deg, #34c759 0%, #30d158 100%);
+        }
+
+        .conversation-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .conversation-name {
+            font-weight: 600;
+            font-size: 15px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversation-preview {
+            color: var(--text-secondary);
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 2px;
+        }
+
+        .conversation-time {
+            color: var(--text-tertiary);
+            font-size: 12px;
+            flex-shrink: 0;
+            margin-left: 8px;
+        }
+
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            min-width: 0; /* Allow shrinking below content size */
+            display: flex;
+            flex-direction: column;
+            background: var(--bg-primary);
+        }
+
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            background: var(--bg-secondary);
+        }
+
+        .chat-header .avatar {
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+        }
+
+        .chat-header-info h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .chat-header-info p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 16px 20px;
+        }
+
+        .date-divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .date-divider span {
+            background: var(--bg-primary);
+            padding: 0 12px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .message-group {
+            margin-bottom: 8px;
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 2px;
+        }
+
+        .message.sent {
+            align-items: flex-end;
+        }
+
+        .message.received {
+            align-items: flex-start;
+        }
+
+        .message-sender {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            margin-left: 12px;
+        }
+
+        .message.sent .message-sender {
+            margin-right: 12px;
+            margin-left: 0;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 8px 12px;
+            border-radius: 18px;
+            font-size: 15px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .message.sent .message-bubble {
+            background: var(--blue-bubble);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.received .message-bubble {
+            background: var(--gray-bubble);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-bubble a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        .message-bubble img,
+        .message-bubble video {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 12px;
+            display: block;
+        }
+
+        .message-time {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            margin-top: 4px;
+            padding: 0 12px;
+        }
+
+        .message-reactions {
+            display: flex;
+            gap: 4px;
+            margin-top: 4px;
+            flex-wrap: wrap;
+        }
+
+        .reaction {
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .read-receipt {
+            font-size: 10px;
+            color: var(--text-tertiary);
+            margin-top: 2px;
+            padding: 0 12px;
+        }
+
+        .link-preview {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 10px;
+            margin-top: 6px;
+            font-size: 13px;
+        }
+
+        .link-preview-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .link-preview-desc {
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-size: 16px;
+        }
+
+        .attachment-image {
+            max-width: 100%;
+            width: auto;
+            height: auto;
+            max-height: 400px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            display: block;
+        }
+
+        .attachment-image:hover {
+            transform: scale(1.02);
+        }
+
+        .attachment-video {
+            max-width: 100%;
+            width: auto;
+            height: auto;
+            max-height: 400px;
+            border-radius: 16px;
+            display: block;
+        }
+
+        .edited-indicator {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            font-style: italic;
+            margin-top: 4px;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4d4d4d;
+        }
+
+        /* Loading state */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-secondary);
+        }
+
+        /* Image modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal img {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            font-size: 12px;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Info Panel (Right Sidebar) */
+        .info-panel {
+            width: var(--info-panel-width);
+            min-width: var(--info-panel-width);
+            background: var(--bg-secondary);
+            border-left: 1px solid var(--border-color);
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .info-panel.visible {
+            display: flex;
+        }
+
+        .info-panel-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-panel-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .info-panel-section {
+            padding: 16px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .info-panel-section h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+        }
+
+        .info-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .info-stat-label {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .info-stat-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .process-button {
+            width: 100%;
+            padding: 12px;
+            background: var(--blue-bubble);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .process-button:hover {
+            opacity: 0.8;
+        }
+
+        .process-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .participant-list {
+            list-style: none;
+        }
+
+        .participant-item {
+            padding: 6px 0;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .participant-name {
+            color: var(--text-primary);
+        }
+
+        .participant-count {
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        /* Analysis/Word Frequency Styles */
+        .word-list {
+            margin-top: 8px;
+        }
+
+        .word-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            font-size: 13px;
+        }
+
+        .word-label {
+            min-width: 80px;
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .word-bar-container {
+            flex: 1;
+            height: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .word-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--blue-bubble), #0a6fd9);
+            transition: width 0.3s ease;
+        }
+
+        .word-count {
+            min-width: 40px;
+            text-align: right;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        /* Enhanced Analysis UI */
+        .analysis-header {display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;}
+        .analysis-header h4 {margin: 0; font-size: 16px;}
+        .mini-btn {padding: 4px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; font-size: 12px;}
+        .mini-btn:hover {background: var(--bg-primary);}
+
+        .search-input {width: 100%; padding: 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); font-size: 13px; margin-bottom: 8px;}
+        .search-result {min-height: 20px; font-size: 12px; margin-bottom: 8px;}
+        .search-match {color: var(--blue-bubble); padding: 4px 0;}
+        .search-no-match {color: var(--text-tertiary); padding: 4px 0;}
+
+        .stat-grid {display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 12px;}
+        .stat-box {background: var(--bg-tertiary); padding: 8px; border-radius: 6px; text-align: center;}
+        .stat-val {font-size: 16px; font-weight: 700; color: var(--text-primary);}
+        .stat-lbl {font-size: 10px; color: var(--text-secondary); margin-top: 2px;}
+
+        .section {background: var(--bg-tertiary); border-radius: 6px; margin-bottom: 8px; overflow: hidden;}
+        .section-title {padding: 10px 12px; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none;}
+        .section-title:hover {background: var(--bg-primary);}
+        .arrow {font-size: 10px; color: var(--text-secondary);}
+        .section-body {padding: 0 12px 12px 12px;}
+        .sub-title {font-size: 11px; font-weight: 600; color: var(--text-secondary); margin: 8px 0 4px 0; text-transform: uppercase;}
+
+        .word-row {display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px;}
+        .w-label {min-width: 70px; font-weight: 500;}
+        .w-bar-bg {flex: 1; height: 14px; background: var(--bg-primary); border-radius: 3px; overflow: hidden;}
+        .w-bar {height: 100%; background: linear-gradient(90deg, var(--blue-bubble), #0a6fd9); transition: width 0.3s;}
+        .w-count {min-width: 35px; text-align: right; color: var(--text-secondary); font-size: 11px;}
+
+        .phrase {font-size: 12px; padding: 3px 0; color: var(--text-secondary);}
+        .phrase b {color: var(--text-primary); font-weight: 600;}
+
+        .emoji-grid {display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; max-width: 100%; overflow: hidden;}
+        .emoji-box {text-align: center; padding: 8px; background: var(--bg-primary); border-radius: 6px;}
+        .emoji {font-size: 24px;}
+        .e-count {font-size: 11px; color: var(--text-secondary); margin-top: 4px;}
+
+        .heatmap {display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; margin: 8px 0;}
+        .heat-cell {height: 20px; border-radius: 2px; cursor: pointer;}
+        .heat-labels {display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary);}
+
+        .day-chart {display: flex; gap: 8px; margin-top: 8px; height: 100px; align-items: flex-end;}
+        .day-bar {flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative;}
+        .day-fill {width: 100%; background: var(--blue-bubble); border-radius: 4px 4px 0 0; margin-bottom: 4px;}
+        .day-label {font-size: 10px; color: var(--text-secondary);}
+        .day-val {font-size: 11px; color: var(--text-primary); font-weight: 600; position: absolute; top: -18px;}
+
+        .time-stats {font-size: 11px; color: var(--text-secondary); margin-top: 12px; line-height: 1.5;}
+
+        .sent-bar {height: 24px; border-radius: 6px; margin: 8px 0;}
+        .sent-label {font-size: 11px; color: var(--text-secondary); text-align: center;}
+
+        .part-box {padding: 8px; background: var(--bg-primary); border-radius: 6px; margin-bottom: 6px;}
+        .part-name {font-weight: 600; font-size: 13px; margin-bottom: 4px;}
+        .part-stats {font-size: 11px; color: var(--text-secondary);}
+
+        .url-row {font-size: 12px; padding: 4px 0; color: var(--text-secondary);}
+        .url-row b {color: var(--text-primary);}
+
+        /* Onboarding Overlay */
+        .onboarding-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-primary);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .onboarding-overlay.hidden {
+            display: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .onboarding-card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .onboarding-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+        }
+
+        .onboarding-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .onboarding-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .onboarding-btn {
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 8px;
+        }
+
+        .onboarding-btn-primary {
+            background: var(--blue-bubble);
+            color: white;
+        }
+
+        .onboarding-btn-primary:hover {
+            background: #0a6fd9;
+        }
+
+        .onboarding-btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .onboarding-btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .onboarding-btn-link {
+            background: transparent;
+            color: var(--text-secondary);
+            text-decoration: underline;
+            padding: 8px 16px;
+        }
+
+        .onboarding-btn-link:hover {
+            color: var(--text-primary);
+            background: transparent;
+        }
+
+        .onboarding-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .permission-steps {
+            text-align: left;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+
+        .permission-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+        }
+
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--blue-bubble);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .step-text {
+            font-size: 14px;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        .error-message {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            color: #ff3b30;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .success-message {
+            background: rgba(52, 199, 89, 0.1);
+            border: 1px solid rgba(52, 199, 89, 0.3);
+            color: #34c759;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        /* Date/Contact Selection */
+        .selection-form {
+            text-align: left;
+            margin: 24px 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--blue-bubble);
+        }
+
+        .date-inputs {
+            display: flex;
+            gap: 12px;
+        }
+
+        .date-inputs .form-input {
+            flex: 1;
+        }
+
+        .contact-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 8px;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .contact-item:hover {
+            background: var(--bg-primary);
+        }
+
+        .contact-item.selected {
+            background: rgba(11, 132, 254, 0.2);
+        }
+
+        .contact-checkbox {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--blue-bubble);
+        }
+
+        .contact-info {
+            flex: 1;
+        }
+
+        .contact-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .contact-count {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .stats-preview {
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--blue-bubble);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--bg-tertiary);
+            border-top-color: var(--blue-bubble);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Onboarding Overlay -->
+    <div class="onboarding-overlay" id="onboardingOverlay">
+        <!-- Step 1: Welcome -->
+        <div class="onboarding-card" id="welcomeStep">
+            <div class="onboarding-icon">💬</div>
+            <h1 class="onboarding-title">Welcome to Message Insights</h1>
+            <p class="onboarding-subtitle">
+                Explore and analyze your iMessage conversations with powerful insights and beautiful visualizations. All data stays on your device.
+            </p>
+            <button class="onboarding-btn onboarding-btn-primary" onclick="checkPermissions()">
+                Get Started
+            </button>
+        </div>
+
+        <!-- Step 2: Permission Required -->
+        <div class="onboarding-card hidden" id="permissionStep">
+            <div class="onboarding-icon">🔐</div>
+            <h1 class="onboarding-title">Permission Required</h1>
+            <p class="onboarding-subtitle">
+                To read your messages, Message Insights needs Full Disk Access permission.
+            </p>
+            <div class="permission-steps">
+                <div class="permission-step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">Open <strong>System Settings</strong> (or System Preferences)</div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">Go to <strong>Privacy & Security</strong> → <strong>Full Disk Access</strong></div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">Click <strong>+</strong> and add <strong>Message Insights</strong></div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">4</div>
+                    <div class="step-text">Restart the app after granting permission</div>
+                </div>
+            </div>
+            <div id="permissionError" class="error-message hidden"></div>
+            <button class="onboarding-btn onboarding-btn-primary" onclick="openSystemPreferences()">
+                Open System Settings
+            </button>
+            <button class="onboarding-btn onboarding-btn-secondary" onclick="retryPermissionCheck()">
+                Check Again
+            </button>
+        </div>
+
+        <!-- Step 3: Contacts Permission (Optional) -->
+        <div class="onboarding-card hidden" id="contactsPermissionStep">
+            <div class="onboarding-icon">👤</div>
+            <h1 class="onboarding-title">Show Contact Names?</h1>
+            <p class="onboarding-subtitle">
+                To display contact names instead of phone numbers, grant Contacts access.
+            </p>
+            <div class="permission-steps">
+                <div class="permission-step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">Open <strong>System Settings</strong> → <strong>Privacy & Security</strong> → <strong>Contacts</strong></div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">Click <strong>+</strong> and add <strong>Message Insights</strong></div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">Make sure the toggle is <strong>ON</strong></div>
+                </div>
+            </div>
+            <button class="onboarding-btn onboarding-btn-primary" onclick="openContactsPreferences()">
+                Open Contacts Settings
+            </button>
+            <button class="onboarding-btn onboarding-btn-secondary" onclick="checkContactsAndContinue()">
+                Check & Continue
+            </button>
+            <button class="onboarding-btn onboarding-btn-link" onclick="skipContactsPermission()">
+                Skip (show phone numbers only)
+            </button>
+        </div>
+
+        <!-- Step 4: Loading Data -->
+        <div class="onboarding-card hidden" id="loadingStep">
+            <div class="loading-spinner"></div>
+            <h1 class="onboarding-title">Loading Your Messages</h1>
+            <p class="onboarding-subtitle" id="loadingStatus">Connecting to your message database...</p>
+        </div>
+
+        <!-- Step 4: Data Selection -->
+        <div class="onboarding-card hidden" id="selectionStep" style="max-width: 600px;">
+            <div class="onboarding-icon">📊</div>
+            <h1 class="onboarding-title">Your Message History</h1>
+
+            <div class="stats-preview">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="previewTotalMessages">-</div>
+                        <div class="stat-label">Total Messages</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="previewContacts">-</div>
+                        <div class="stat-label">Contacts</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="previewSent">-</div>
+                        <div class="stat-label">Sent</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="previewReceived">-</div>
+                        <div class="stat-label">Received</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="selection-form">
+                <div class="form-group">
+                    <label class="form-label">Date Range (Optional)</label>
+                    <div class="date-inputs">
+                        <input type="date" class="form-input" id="startDate" placeholder="Start Date">
+                        <input type="date" class="form-input" id="endDate" placeholder="End Date">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Filter Contacts (Optional - leave empty for all)</label>
+                    <input type="text" class="form-input" id="contactSearch" placeholder="Search contacts...">
+                    <div class="contact-list" id="contactList">
+                        <!-- Contacts will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <button class="onboarding-btn onboarding-btn-primary" onclick="loadMessages()">
+                Load Messages
+            </button>
+            <button class="onboarding-btn onboarding-btn-secondary" onclick="loadAllMessages()">
+                Load All (No Filter)
+            </button>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>Messages</h1>
+            <input type="text" class="search-box" placeholder="Search conversations..." id="searchBox">
+        </div>
+        <div class="conversation-list" id="conversationList">
+            <div class="loading">Loading conversations...</div>
+        </div>
+        <div class="stats-bar" id="statsBar"></div>
+    </div>
+    <div class="chat-area">
+        <div class="empty-state" id="emptyState">
+            Select a conversation to view messages
+        </div>
+        <div class="chat-header" id="chatHeader" style="display: none;">
+            <div class="avatar" id="chatAvatar">?</div>
+            <div class="chat-header-info">
+                <h2 id="chatName">Conversation</h2>
+                <p id="chatSubtitle"></p>
+            </div>
+        </div>
+        <div class="messages-container" id="messagesContainer" style="display: none;"></div>
+    </div>
+
+    <div class="info-panel" id="infoPanel">
+        <div class="info-panel-header">
+            <h3>Conversation Info</h3>
+        </div>
+
+        <div class="info-panel-section">
+            <h4>Statistics</h4>
+            <div class="info-stat">
+                <span class="info-stat-label">Total Messages</span>
+                <span class="info-stat-value" id="totalMessages">-</span>
+            </div>
+            <div class="info-stat">
+                <span class="info-stat-label">Date Range</span>
+                <span class="info-stat-value" id="dateRange">-</span>
+            </div>
+            <div class="info-stat">
+                <span class="info-stat-label">Duration</span>
+                <span class="info-stat-value" id="duration">-</span>
+            </div>
+            <div class="info-stat">
+                <span class="info-stat-label">Avg per Day</span>
+                <span class="info-stat-value" id="avgPerDay">-</span>
+            </div>
+            <div class="info-stat">
+                <span class="info-stat-label">Total Words</span>
+                <span class="info-stat-value" id="totalWords">-</span>
+            </div>
+        </div>
+
+        <div class="info-panel-section">
+            <h4>Participants</h4>
+            <ul class="participant-list" id="participantList"></ul>
+        </div>
+
+        <div class="info-panel-section">
+            <button class="process-button" id="processButton" onclick="processConversation()">
+                Process & Analyze
+            </button>
+        </div>
+    </div>
+
+    <div class="modal" id="imageModal">
+        <img src="" alt="Full size image" id="modalImage">
+    </div>
+
+    <!-- Tauri API Integration -->
+    <script>
+        // Global state
+        window.appState = {
+            contacts: [],
+            stats: null,
+            selectedContacts: [],
+            messages: [],
+            isTauri: false
+        };
+
+        // Show/hide onboarding steps
+        function showStep(stepId) {
+            console.log('Showing step:', stepId);
+            document.querySelectorAll('.onboarding-card').forEach(function(el) { el.classList.add('hidden'); });
+            var stepEl = document.getElementById(stepId);
+            if (stepEl) stepEl.classList.remove('hidden');
+        }
+
+        // Get Tauri invoke function
+        function getTauriInvoke() {
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                return window.__TAURI__.core.invoke;
+            } else if (window.__TAURI__ && window.__TAURI__.invoke) {
+                return window.__TAURI__.invoke;
+            }
+            return null;
+        }
+
+        // Check database permissions
+        window.checkPermissions = async function() {
+            console.log('checkPermissions called');
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Checking database access...';
+
+            var invoke = getTauriInvoke();
+            if (!invoke) {
+                console.error('Tauri invoke not available');
+                showStep('permissionStep');
+                document.getElementById('permissionError').textContent = 'Tauri API not available. Please restart the app.';
+                document.getElementById('permissionError').classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const status = await invoke('check_database_access');
+                console.log('Database status:', status);
+
+                if (status.accessible) {
+                    // Database access granted, now check contacts access
+                    document.getElementById('loadingStatus').textContent = 'Checking contacts access...';
+                    const hasContacts = await invoke('check_contacts_access');
+                    console.log('Has contacts access:', hasContacts);
+
+                    if (hasContacts) {
+                        // Both permissions granted, proceed to load data
+                        await loadDatabaseStats();
+                    } else {
+                        // Show contacts permission step
+                        showStep('contactsPermissionStep');
+                    }
+                } else {
+                    showStep('permissionStep');
+                    const errorEl = document.getElementById('permissionError');
+                    if (status.error) {
+                        errorEl.textContent = status.error;
+                        errorEl.classList.remove('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('Permission check error:', error);
+                showStep('permissionStep');
+                const errorEl = document.getElementById('permissionError');
+                errorEl.textContent = 'Error: ' + error;
+                errorEl.classList.remove('hidden');
+            }
+        };
+
+        // Open System Preferences
+        window.openSystemPreferences = async function() {
+            console.log('openSystemPreferences called');
+            var invoke = getTauriInvoke();
+            if (invoke) {
+                try {
+                    await invoke('open_system_preferences');
+                    console.log('System Preferences opened successfully');
+                    return;
+                } catch (e) {
+                    console.error('Error opening system preferences:', e);
+                }
+            }
+            alert('Please open System Settings > Privacy & Security > Full Disk Access manually and add Message Insights to the list.');
+        };
+
+        // Retry permission check
+        window.retryPermissionCheck = async function() {
+            await window.checkPermissions();
+        };
+
+        // Open Contacts Preferences
+        window.openContactsPreferences = async function() {
+            console.log('openContactsPreferences called');
+            var invoke = getTauriInvoke();
+            if (invoke) {
+                try {
+                    await invoke('open_contacts_preferences');
+                    console.log('Contacts Preferences opened successfully');
+                    return;
+                } catch (e) {
+                    console.error('Error opening contacts preferences:', e);
+                }
+            }
+            alert('Please open System Settings > Privacy & Security > Contacts manually and add Message Insights to the list.');
+        };
+
+        // Check contacts and continue
+        window.checkContactsAndContinue = async function() {
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Checking contacts access...';
+            await loadDatabaseStats();
+        };
+
+        // Skip contacts permission
+        window.skipContactsPermission = async function() {
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Loading without contact names...';
+            await loadDatabaseStats();
+        };
+
+        // Load database statistics
+        async function loadDatabaseStats() {
+            document.getElementById('loadingStatus').textContent = 'Loading message statistics...';
+
+            var invoke = getTauriInvoke();
+            if (!invoke) {
+                console.error('Tauri invoke not available in loadDatabaseStats');
+                return;
+            }
+
+            try {
+                const stats = await invoke('get_chat_stats', { options: null });
+                window.appState.stats = stats;
+
+                document.getElementById('previewTotalMessages').textContent = stats.total_messages.toLocaleString();
+                document.getElementById('previewContacts').textContent = stats.total_contacts.toLocaleString();
+                document.getElementById('previewSent').textContent = stats.messages_sent.toLocaleString();
+                document.getElementById('previewReceived').textContent = stats.messages_received.toLocaleString();
+
+                // Set date range defaults
+                if (stats.date_range_start) {
+                    const startDate = new Date(stats.date_range_start * 1000);
+                    document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+                    document.getElementById('startDate').min = startDate.toISOString().split('T')[0];
+                }
+                if (stats.date_range_end) {
+                    const endDate = new Date(stats.date_range_end * 1000);
+                    document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+                    document.getElementById('endDate').max = endDate.toISOString().split('T')[0];
+                }
+
+                // Load chats (conversations)
+                document.getElementById('loadingStatus').textContent = 'Loading conversations...';
+                const chats = await invoke('get_chats');
+                window.appState.chats = chats;
+                window.appState.contacts = chats; // For backwards compatibility
+                renderChatList(chats);
+
+                showStep('selectionStep');
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                showStep('permissionStep');
+                const errorEl = document.getElementById('permissionError');
+                errorEl.textContent = 'Error loading data: ' + error;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        // Get display name for a chat
+        function getChatDisplayName(chat) {
+            // If chat has a display name (usually group chats), use it
+            if (chat.display_name) {
+                return chat.display_name;
+            }
+            // For individual chats or group chats without names, show participants
+            if (chat.participants && chat.participants.length > 0) {
+                if (chat.participants.length === 1) {
+                    return chat.participants[0];
+                }
+                // For group chats, show first few participants
+                const names = chat.participants.slice(0, 3).join(', ');
+                if (chat.participants.length > 3) {
+                    return names + ' +' + (chat.participants.length - 3) + ' more';
+                }
+                return names;
+            }
+            return chat.chat_identifier || 'Unknown';
+        }
+
+        // Render chat list
+        function renderChatList(chats) {
+            const container = document.getElementById('contactList');
+            container.innerHTML = chats.slice(0, 100).map(chat => {
+                const displayName = getChatDisplayName(chat);
+                const isGroup = chat.is_group || (chat.participants && chat.participants.length > 1);
+                const icon = isGroup ? '👥' : '💬';
+                const subtitle = isGroup && chat.participants
+                    ? `${chat.participants.length} participants · ${chat.message_count.toLocaleString()} messages`
+                    : `${chat.message_count.toLocaleString()} messages`;
+
+                return `
+                <div class="contact-item" data-id="${chat.id}" onclick="toggleContact(${chat.id})">
+                    <input type="checkbox" class="contact-checkbox" id="contact-${chat.id}">
+                    <div class="contact-info">
+                        <div class="contact-name">${icon} ${escapeHtml(displayName)}</div>
+                        <div class="contact-count">${subtitle}</div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // Legacy function for backwards compatibility
+        function renderContactList(contacts) {
+            renderChatList(contacts);
+        }
+
+        // Toggle contact selection
+        window.toggleContact = function(id) {
+            const checkbox = document.getElementById(`contact-${id}`);
+            const item = checkbox.closest('.contact-item');
+            checkbox.checked = !checkbox.checked;
+            item.classList.toggle('selected', checkbox.checked);
+
+            if (checkbox.checked) {
+                window.appState.selectedContacts.push(id);
+            } else {
+                window.appState.selectedContacts = window.appState.selectedContacts.filter(c => c !== id);
+            }
+        };
+
+        // Chat search filter
+        document.getElementById('contactSearch').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const chats = window.appState.chats || window.appState.contacts || [];
+            const filtered = chats.filter(c => {
+                const displayName = getChatDisplayName(c).toLowerCase();
+                const identifier = (c.chat_identifier || '').toLowerCase();
+                const participants = (c.participants || []).join(' ').toLowerCase();
+                return displayName.includes(query) || identifier.includes(query) || participants.includes(query);
+            });
+            renderChatList(filtered);
+        });
+
+        // Load messages with filters
+        window.loadMessages = async function() {
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Loading messages...';
+
+            var invoke = getTauriInvoke();
+            if (!invoke) {
+                console.error('Tauri invoke not available in loadMessages');
+                alert('Tauri API not available. Please restart the app.');
+                return;
+            }
+
+            const options = {};
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (startDate) {
+                options.start_date = Math.floor(new Date(startDate).getTime() / 1000);
+            }
+            if (endDate) {
+                options.end_date = Math.floor(new Date(endDate + 'T23:59:59').getTime() / 1000);
+            }
+            if (window.appState.selectedContacts.length > 0) {
+                options.contact_ids = window.appState.selectedContacts;
+            }
+
+            try {
+                const messages = await invoke('get_messages', { options: Object.keys(options).length > 0 ? options : null, limit: null });
+                window.appState.messages = messages;
+                processMessagesForViewer(messages);
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                alert('Error loading messages: ' + error);
+                showStep('selectionStep');
+            }
+        };
+
+        // Load all messages without filters
+        window.loadAllMessages = async function() {
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Loading all messages...';
+
+            var invoke = getTauriInvoke();
+            if (!invoke) {
+                console.error('Tauri invoke not available in loadAllMessages');
+                alert('Tauri API not available. Please restart the app.');
+                return;
+            }
+
+            try {
+                const messages = await invoke('get_messages', { options: null, limit: null });
+                window.appState.messages = messages;
+                processMessagesForViewer(messages);
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                alert('Error loading messages: ' + error);
+                showStep('selectionStep');
+            }
+        };
+
+        // Build identifier to name lookup from chats data
+        function buildNameLookup() {
+            const lookup = {};
+            const chats = window.appState.chats || [];
+            chats.forEach(chat => {
+                // For individual chats with a display_name
+                if (chat.display_name && chat.participants && chat.participants.length === 1) {
+                    // Map the raw identifier to the resolved name
+                    // The chat_identifier is usually like "chat123456" or "+1234567890"
+                    if (chat.chat_identifier) {
+                        lookup[chat.chat_identifier] = chat.display_name;
+                    }
+                }
+                // Also map participants to themselves (they're already resolved)
+                if (chat.participants) {
+                    chat.participants.forEach((participant, idx) => {
+                        // If this participant looks like a resolved name (not a phone/email), store it
+                        // The backend already resolved names in the participants array
+                        const rawId = chat.chat_identifier;
+                        if (rawId && chat.participants.length === 1) {
+                            lookup[rawId] = participant;
+                        }
+                    });
+                }
+            });
+            return lookup;
+        }
+
+        // Process messages and prepare for viewer
+        function processMessagesForViewer(messages) {
+            console.log('processMessagesForViewer called with', messages.length, 'messages');
+            document.getElementById('loadingStatus').textContent = 'Processing messages...';
+
+            // Build name lookup from chats
+            const nameLookup = buildNameLookup();
+            console.log('Name lookup built:', Object.keys(nameLookup).length, 'entries');
+
+            // Also create a direct lookup from chat participants
+            const chats = window.appState.chats || [];
+            const participantNames = {};
+            chats.forEach(chat => {
+                if (chat.display_name && chat.participants && chat.participants.length >= 1) {
+                    // Map display_name to itself for later use
+                    participantNames[chat.chat_identifier] = chat.display_name;
+                }
+                // The participants array already has resolved names
+                // Map identifiers we see in messages to the names from chats
+            });
+
+            // Group messages by chat_id for better grouping
+            const byChat = {};
+            messages.forEach(msg => {
+                const chatKey = msg.chat_id || msg.contact_identifier || 'Unknown';
+                if (!byChat[chatKey]) {
+                    byChat[chatKey] = {
+                        messages: [],
+                        identifier: msg.contact_identifier
+                    };
+                }
+                byChat[chatKey].messages.push(msg);
+            });
+
+            // Find resolved name for each chat
+            const chatNames = {};
+            Object.entries(byChat).forEach(([chatKey, chatData]) => {
+                // Look for this chat in our chats data
+                const matchingChat = chats.find(c => c.id == chatKey || c.chat_identifier === chatData.identifier);
+                if (matchingChat) {
+                    chatNames[chatKey] = getChatDisplayName(matchingChat);
+                } else {
+                    chatNames[chatKey] = chatData.identifier || 'Unknown';
+                }
+            });
+
+            // Build a lookup for individual sender names
+            const senderNameLookup = {};
+            chats.forEach(chat => {
+                // For each chat, if it has 1 participant with a resolved name, map identifier to name
+                if (chat.participants && chat.participants.length === 1 && chat.display_name) {
+                    // The chat_identifier for individual chats is often the phone/email
+                    senderNameLookup[chat.chat_identifier] = chat.display_name;
+                }
+                // Also, participants array already has resolved names, so we can use them
+                // But we need to map the original identifier to the name
+            });
+
+            // Also look through all chats to build identifier->name mapping
+            chats.forEach(chat => {
+                if (chat.display_name && !chat.is_group && chat.chat_identifier) {
+                    senderNameLookup[chat.chat_identifier] = chat.display_name;
+                }
+            });
+
+            // Convert to IMESSAGE_DATA format for compatibility with existing viewer
+            const data = {};
+            Object.entries(byChat).forEach(([chatKey, chatData]) => {
+                const msgs = chatData.messages;
+                const displayName = chatNames[chatKey] || chatData.identifier || 'Unknown';
+                const matchingChat = chats.find(c => c.id == chatKey || c.chat_identifier === chatData.identifier);
+                const isGroupChat = matchingChat ? matchingChat.is_group : false;
+
+                // Sort messages by date (oldest first for display)
+                msgs.sort((a, b) => a.date - b.date);
+
+                // Format messages as text content
+                const content = msgs.map(msg => {
+                    const date = new Date(msg.date * 1000);
+                    const dateStr = date.toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric'
+                    }) + ' ' + date.toLocaleTimeString('en-US', {
+                        hour: 'numeric', minute: '2-digit', second: '2-digit'
+                    });
+
+                    // For sender, resolve the individual sender's name
+                    let sender = 'Me';
+                    if (!msg.is_from_me) {
+                        // For group chats, look up the individual sender
+                        // msg.contact_identifier is the individual sender's phone/email
+                        const senderId = msg.contact_identifier;
+
+                        // Try to find the sender's name from our chats
+                        const senderChat = chats.find(c =>
+                            !c.is_group &&
+                            (c.chat_identifier === senderId ||
+                             (c.participants && c.participants.length === 1))
+                        );
+
+                        if (senderChat && senderChat.display_name) {
+                            sender = senderChat.display_name;
+                        } else if (senderNameLookup[senderId]) {
+                            sender = senderNameLookup[senderId];
+                        } else if (matchingChat && matchingChat.participants) {
+                            // Try to find in participants (they're already resolved)
+                            const found = matchingChat.participants.find(p =>
+                                p.includes(senderId) || senderId.includes(p.replace(/\D/g, ''))
+                            );
+                            sender = found || senderId || displayName;
+                        } else {
+                            sender = senderId || displayName;
+                        }
+                    }
+
+                    const text = msg.text || (msg.has_attachment ? '[Attachment]' : '[No text]');
+
+                    return `${dateStr}\n${sender}\n${text}\n`;
+                }).join('\n');
+
+                data[displayName + '.txt'] = content;
+            });
+
+            window.IMESSAGE_DATA = data;
+
+            // Hide onboarding and load conversations
+            console.log('processMessagesForViewer: Hiding onboarding overlay');
+            document.getElementById('onboardingOverlay').classList.add('hidden');
+            loadConversations();
+        }
+
+        // Escape HTML for safe rendering
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize - show welcome screen
+        var tauriCheckAttempts = 0;
+        var maxTauriCheckAttempts = 20; // 2 seconds total
+
+        function initApp() {
+            console.log('initApp called, attempt:', tauriCheckAttempts, '__TAURI__:', !!window.__TAURI__);
+
+            // Check if we have Tauri API available
+            if (window.__TAURI__) {
+                console.log('Tauri detected, showing welcome step');
+                window.appState.isTauri = true;
+                showStep('welcomeStep');
+            } else if (tauriCheckAttempts < maxTauriCheckAttempts) {
+                // Retry - Tauri may not have injected API yet
+                tauriCheckAttempts++;
+                setTimeout(initApp, 100);
+            } else {
+                // Fallback for non-Tauri environment (browser preview)
+                console.log('initApp FALLBACK: Running outside Tauri after', maxTauriCheckAttempts, 'attempts');
+                console.log('initApp FALLBACK: Hiding onboarding overlay');
+                document.getElementById('onboardingOverlay').classList.add('hidden');
+                if (window.IMESSAGE_DATA && Object.keys(window.IMESSAGE_DATA).length > 0) {
+                    loadConversations();
+                }
+            }
+        }
+
+        // Wait for DOM to be ready, then check for Tauri
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(initApp, 50);
+            });
+        } else {
+            setTimeout(initApp, 50);
+        }
+    </script>
+
+    <script>
+        // Initialize IMESSAGE_DATA for compatibility
+        window.IMESSAGE_DATA = window.IMESSAGE_DATA || {};
+    </script>
+
+    <script>
+        let conversations = [];
+        let currentConversation = null;
+
+        // Parse a message file content
+        function parseMessages(content, filename) {
+            const lines = content.split('\n');
+            const messages = [];
+            let i = 0;
+
+            while (i < lines.length) {
+                // Skip empty lines
+                if (!lines[i] || lines[i].trim() === '') {
+                    i++;
+                    continue;
+                }
+
+                // Try to parse timestamp line
+                const timestampMatch = lines[i].match(/^(\w{3} \d{1,2}, \d{4}\s+\d{1,2}:\d{2}:\d{2} [AP]M)(.*)$/);
+                if (timestampMatch) {
+                    const timestamp = timestampMatch[1];
+                    const readInfo = timestampMatch[2].trim();
+
+                    i++;
+                    if (i >= lines.length) break;
+
+                    const sender = lines[i].trim();
+                    i++;
+
+                    // Collect message content (may span multiple lines)
+                    let messageContent = '';
+                    let reactions = [];
+                    let editInfo = '';
+                    let isReply = false;
+
+                    while (i < lines.length) {
+                        const line = lines[i];
+                        const trimmedLine = line.trim();
+
+                        // Check for next message timestamp
+                        if (line.match(/^\w{3} \d{1,2}, \d{4}\s+\d{1,2}:\d{2}:\d{2} [AP]M/)) {
+                            break;
+                        }
+
+                        // Check for tapbacks/reactions
+                        if (line.startsWith('Tapbacks:')) {
+                            i++;
+                            while (i < lines.length && lines[i].trim() && !lines[i].match(/^\w{3} \d{1,2}, \d{4}/)) {
+                                if (lines[i].trim()) {
+                                    reactions.push(lines[i].trim());
+                                }
+                                i++;
+                            }
+                            continue;
+                        }
+
+                        // Check for edit info
+                        if (trimmedLine.startsWith('Edited ')) {
+                            editInfo = trimmedLine;
+                            i++;
+                            continue;
+                        }
+
+                        // Check for reply indicator
+                        if (trimmedLine.includes('This message responded to an earlier message')) {
+                            isReply = true;
+                            i++;
+                            continue;
+                        }
+
+                        // Check for inline response (indented)
+                        if (line.startsWith('    ') && line.match(/^\s+\w{3} \d{1,2}, \d{4}/)) {
+                            // This is an inline response, skip it
+                            i++;
+                            while (i < lines.length && lines[i].startsWith('    ')) {
+                                i++;
+                            }
+                            continue;
+                        }
+
+                        if (line.trim() === '') {
+                            i++;
+                            break;
+                        }
+
+                        messageContent += (messageContent ? '\n' : '') + line;
+                        i++;
+                    }
+
+                    if (messageContent || sender) {
+                        messages.push({
+                            timestamp,
+                            sender,
+                            content: messageContent.trim(),
+                            readInfo: readInfo ? readInfo.replace(/^\s*\(/, '').replace(/\)\s*$/, '') : '',
+                            reactions,
+                            editInfo,
+                            isReply
+                        });
+                    }
+                } else {
+                    i++;
+                }
+            }
+
+            return messages;
+        }
+
+        // Get initials from name
+        function getInitials(name) {
+            if (!name) return '?';
+            const parts = name.replace(/[+\d]/g, '').trim().split(/[\s,]+/).filter(p => p);
+            if (parts.length === 0) {
+                // It's a phone number
+                return '#';
+            }
+            return parts.slice(0, 2).map(p => p[0]).join('').toUpperCase();
+        }
+
+        // Format timestamp for display
+        function formatTime(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            } catch {
+                return timestamp;
+            }
+        }
+
+        // Format date for dividers
+        function formatDate(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
+
+                if (date.toDateString() === today.toDateString()) {
+                    return 'Today';
+                } else if (date.toDateString() === yesterday.toDateString()) {
+                    return 'Yesterday';
+                }
+                return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+            } catch {
+                return timestamp;
+            }
+        }
+
+        // Get conversation display name from filename
+        function getDisplayName(filename) {
+            let name = filename.replace('.txt', '');
+
+            // Handle group chats with named groups
+            if (name.includes(' - ')) {
+                const parts = name.split(' - ');
+                return parts[0];
+            }
+
+            // Handle phone number lists (group chats)
+            if (name.includes(',')) {
+                const numbers = name.split(',').map(n => n.trim());
+                if (numbers.length > 2) {
+                    return `Group (${numbers.length})`;
+                }
+                return numbers.join(', ');
+            }
+
+            return name;
+        }
+
+        // Check if it's a group chat
+        function isGroupChat(filename) {
+            const name = filename.replace('.txt', '');
+            return name.includes(',') || name.includes(' - ');
+        }
+
+        // Render conversation list
+        function renderConversationList(filter = '') {
+            const list = document.getElementById('conversationList');
+            const filterLower = filter.toLowerCase();
+
+            const filtered = conversations.filter(conv =>
+                conv.name.toLowerCase().includes(filterLower) ||
+                conv.filename.toLowerCase().includes(filterLower)
+            );
+
+            list.innerHTML = filtered.map((conv, index) => `
+                <div class="conversation-item" data-index="${conversations.indexOf(conv)}" onclick="selectConversation(${conversations.indexOf(conv)})">
+                    <div class="avatar ${conv.isGroup ? 'group' : ''}">${conv.initials}</div>
+                    <div class="conversation-info">
+                        <div class="conversation-name">${escapeHtml(conv.name)}</div>
+                        <div class="conversation-preview">${escapeHtml(conv.preview)}</div>
+                    </div>
+                    <div class="conversation-time">${conv.lastTime}</div>
+                </div>
+            `).join('');
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Make URLs clickable
+        function linkify(text) {
+            if (!text) return '';
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            return escapeHtml(text).replace(urlRegex, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+        }
+
+        // Check if content is an attachment
+        function isAttachment(content) {
+            return content && content.startsWith('attachments/');
+        }
+
+        // Get attachment type
+        function getAttachmentType(path) {
+            const ext = path.split('.').pop().toLowerCase();
+            if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext)) {
+                return 'image';
+            }
+            if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) {
+                return 'video';
+            }
+            return 'file';
+        }
+
+        // Render message content
+        function renderMessageContent(content) {
+            if (!content) return '';
+
+            // Check if content contains multiple lines (could be multiple attachments)
+            const lines = content.split('\n').filter(line => line.trim());
+
+            // If multiple lines and all are attachments, render them separately
+            if (lines.length > 1 && lines.every(line => isAttachment(line.trim()))) {
+                return lines.map(line => {
+                    const trimmedLine = line.trim();
+                    const type = getAttachmentType(trimmedLine);
+                    if (type === 'image') {
+                        return `<img src="${escapeHtml(trimmedLine)}" class="attachment-image" onclick="showImageModal('${escapeHtml(trimmedLine)}')" alt="Image attachment">`;
+                    }
+                    if (type === 'video') {
+                        return `<video src="${escapeHtml(trimmedLine)}" class="attachment-video" controls></video>`;
+                    }
+                    return `<a href="${escapeHtml(trimmedLine)}" target="_blank">Attachment: ${escapeHtml(trimmedLine.split('/').pop())}</a>`;
+                }).join('');
+            }
+
+            // Single attachment
+            if (isAttachment(content)) {
+                const type = getAttachmentType(content);
+                if (type === 'image') {
+                    return `<img src="${escapeHtml(content)}" class="attachment-image" onclick="showImageModal('${escapeHtml(content)}')" alt="Image attachment">`;
+                }
+                if (type === 'video') {
+                    return `<video src="${escapeHtml(content)}" class="attachment-video" controls></video>`;
+                }
+                return `<a href="${escapeHtml(content)}" target="_blank">Attachment: ${escapeHtml(content.split('/').pop())}</a>`;
+            }
+
+            return linkify(content);
+        }
+
+        // Select and display a conversation
+        function selectConversation(index) {
+            currentConversation = index;
+            const conv = conversations[index];
+
+            // Update active state in sidebar
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector(`[data-index="${index}"]`)?.classList.add('active');
+
+            // Show chat header
+            document.getElementById('emptyState').style.display = 'none';
+            document.getElementById('chatHeader').style.display = 'flex';
+            document.getElementById('messagesContainer').style.display = 'block';
+
+            // Update header
+            document.getElementById('chatAvatar').textContent = conv.initials;
+            document.getElementById('chatAvatar').className = `avatar ${conv.isGroup ? 'group' : ''}`;
+            document.getElementById('chatName').textContent = conv.name;
+            document.getElementById('chatSubtitle').textContent = `${conv.messages.length} messages`;
+
+            // Render messages
+            renderMessages(conv.messages);
+
+            // Show and update info panel
+            updateInfoPanel(conv);
+
+            // Handle analysis section persistence
+            const analysisSection = document.getElementById('analysisSection');
+            if (conv.analysis) {
+                // Conversation has analysis data - show and update it
+                displayAnalysis(conv.analysis);
+            } else if (analysisSection) {
+                // No analysis data - remove the section
+                analysisSection.remove();
+            }
+        }
+
+        // Update info panel with conversation stats
+        // Helper function to check if sender looks valid
+        function isValidSender(sender) {
+            if (!sender) return false;
+
+            // Filter out obvious non-senders
+            if (sender.startsWith('Edited ') ||
+                sender.startsWith('Tapbacks:') ||
+                sender.includes('This message responded to') ||
+                sender.startsWith('attachments/')) {
+                return false;
+            }
+
+            // Filter out numbered lists and titles with colons or quotes
+            if (/^\d+\./.test(sender) || // Starts with "1.", "2.", etc.
+                sender.includes(':') ||
+                sender.includes('"') ||
+                sender.includes('"') ||
+                sender.includes('"') ||
+                sender.includes('Episode') ||
+                sender.includes('Chapter')) {
+                return false;
+            }
+
+            // Filter out things that look like message content (sentences)
+            // Names typically don't contain common words like "is", "so", "the", etc.
+            const lowerSender = sender.toLowerCase();
+            const contentWords = ['is', 'are', 'was', 'were', 'so', 'the', 'this', 'that', 'these', 'those', 'very', 'really'];
+            const hasContentWords = contentWords.some(word => {
+                // Check for word boundaries to avoid false positives (e.g., "Chris" contains "is")
+                const regex = new RegExp(`\\b${word}\\b`, 'i');
+                return regex.test(sender);
+            });
+
+            if (hasContentWords) return false;
+
+            // Filter out very long strings (likely message content)
+            if (sender.length > 50) return false;
+
+            return true;
+        }
+
+        function updateInfoPanel(conv) {
+            try {
+                const panel = document.getElementById('infoPanel');
+
+                // Check if conversation has valid messages
+                if (!conv.messages || conv.messages.length === 0) {
+                    console.log('Info panel hidden: No messages for', conv.name);
+                    panel.classList.remove('visible');
+                    return;
+                }
+
+                console.log('Showing info panel for', conv.name, 'with', conv.messages.length, 'messages');
+                panel.classList.add('visible');
+
+            // Calculate statistics
+            const messages = conv.messages;
+            const totalMessages = messages.length;
+
+            // Get date range
+            try {
+                const firstDate = new Date(messages[0].timestamp);
+                const lastDate = new Date(messages[messages.length - 1].timestamp);
+                const daysDiff = Math.ceil((lastDate - firstDate) / (1000 * 60 * 60 * 24)) || 1;
+
+                // Calculate date range text
+                const dateRangeText = `${firstDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })} - ${lastDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`;
+
+                // Format duration
+                let durationText = '';
+                if (daysDiff < 30) {
+                    durationText = `${daysDiff} days`;
+                } else if (daysDiff < 365) {
+                    const months = Math.floor(daysDiff / 30);
+                    durationText = `${months} month${months !== 1 ? 's' : ''}`;
+                } else {
+                    const years = Math.floor(daysDiff / 365);
+                    const remainingMonths = Math.floor((daysDiff % 365) / 30);
+                    durationText = `${years} year${years !== 1 ? 's' : ''}${remainingMonths > 0 ? `, ${remainingMonths} mo` : ''}`;
+                }
+
+                document.getElementById('dateRange').textContent = dateRangeText;
+                document.getElementById('duration').textContent = durationText;
+                document.getElementById('avgPerDay').textContent = (totalMessages / daysDiff).toFixed(1);
+            } catch (e) {
+                // Handle invalid dates
+                document.getElementById('dateRange').textContent = 'N/A';
+                document.getElementById('duration').textContent = 'N/A';
+                document.getElementById('avgPerDay').textContent = 'N/A';
+            }
+
+            // Calculate total words
+            let totalWords = 0;
+            messages.forEach(msg => {
+                if (msg.content && !msg.content.startsWith('attachments/')) {
+                    totalWords += msg.content.split(/\s+/).filter(w => w.length > 0).length;
+                }
+            });
+
+            // Count messages by participant
+            const participantCounts = {};
+            messages.forEach(msg => {
+                const sender = msg.sender;
+                if (isValidSender(sender)) {
+                    participantCounts[sender] = (participantCounts[sender] || 0) + 1;
+                }
+            });
+
+            // Update remaining stats
+            document.getElementById('totalMessages').textContent = totalMessages.toLocaleString();
+            document.getElementById('totalWords').textContent = totalWords.toLocaleString();
+
+            // Update participants list
+            const participantList = document.getElementById('participantList');
+            const sortedParticipants = Object.entries(participantCounts)
+                .sort((a, b) => b[1] - a[1]);
+
+            participantList.innerHTML = sortedParticipants.map(([name, count]) => `
+                <li class="participant-item">
+                    <span class="participant-name">${escapeHtml(name)}</span>
+                    <span class="participant-count">${count.toLocaleString()}</span>
+                </li>
+            `).join('');
+            } catch (error) {
+                console.error('Error updating info panel for', conv?.name, ':', error);
+                const panel = document.getElementById('infoPanel');
+                panel.classList.remove('visible');
+            }
+        }
+
+        // Process conversation for analysis (placeholder for future features)
+        function processConversation() {
+            const button = document.getElementById('processButton');
+            button.disabled = true;
+            button.textContent = 'Processing...';
+
+            setTimeout(() => {
+                try {
+                    const conv = conversations[currentConversation];
+                    if (!conv || !conv.messages) {
+                        alert('No conversation selected');
+                        button.disabled = false;
+                        button.textContent = 'Process & Analyze';
+                        return;
+                    }
+
+                    // Build analysis data
+                    const analysis = analyzeConversation(conv);
+
+                    // Store in conversation object
+                    conv.analysis = analysis;
+
+                    // Display results
+                    displayAnalysis(analysis);
+
+                    button.disabled = false;
+                    button.textContent = 'Refresh Analysis';
+                } catch (error) {
+                    console.error('Error processing conversation:', error);
+                    alert('Error analyzing conversation: ' + error.message);
+                    button.disabled = false;
+                    button.textContent = 'Process & Analyze';
+                }
+            }, 100);
+        }
+
+        // Analyze conversation to extract word frequencies and patterns
+        function analyzeConversation(conv) {
+            const messages = conv.messages;
+            console.log(`Analyzing ${messages.length} messages...`);
+
+            // === DATA STRUCTURES ===
+            // Word analysis
+            const wordFrequency = {};
+            const wordOverTime = {}; // word -> {month -> count}
+            const nGrams2 = {}; // 2-word phrases
+            const nGrams3 = {}; // 3-word phrases
+
+            // Time patterns
+            const messagesByDate = {}; // YYYY-MM-DD -> count
+            const messagesByHour = {}; // 0-23 -> count
+            const messagesByDayOfWeek = {}; // 0-6 -> count
+            const messagesByMonth = {}; // YYYY-MM -> count
+
+            // Participant patterns
+            const participantStats = {}; // participant -> {count, avgLength, etc}
+            const responseTimes = []; // array of response time in minutes
+
+            // Content patterns
+            const emojiFrequency = {};
+            const urlFrequency = {};
+            const messageLengths = [];
+            const questionCount = 0;
+
+            // Sentiment tracking
+            const positiveWords = new Set(['love', 'great', 'good', 'awesome', 'amazing', 'happy', 'excellent', 'wonderful', 'best', 'perfect', 'thank', 'thanks', 'appreciate', 'congrats', 'yes', 'nice', 'beautiful', 'fantastic', 'brilliant', 'excited', 'fun', 'yay', 'wow', 'cool', 'lol', 'haha', 'hehe']);
+            const negativeWords = new Set(['bad', 'worse', 'worst', 'terrible', 'awful', 'hate', 'sad', 'angry', 'annoyed', 'disappointed', 'unfortunately', 'problem', 'issue', 'wrong', 'error', 'sorry', 'apologize', 'no', 'not', 'never', 'cant', 'wont', 'dont']);
+            let sentimentScores = { positive: 0, negative: 0, neutral: 0 };
+            const sentimentOverTime = {}; // month -> {positive, negative, neutral}
+
+            // Common stop words to filter out
+            const stopWords = new Set([
+                'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'i',
+                'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
+                'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
+                'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their',
+                'what', 'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go',
+                'me', 'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know',
+                'take', 'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them',
+                'see', 'other', 'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over',
+                'think', 'also', 'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first',
+                'well', 'way', 'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day',
+                'most', 'us', 'is', 'was', 'are', 'been', 'has', 'had', 'were', 'said', 'did',
+                'im', 'dont', 'cant', 'wont', 'shouldnt', 'wouldnt', 'couldnt', 'isnt', 'arent',
+                'wasnt', 'werent', 'hasnt', 'havent', 'hadnt', 'doesnt', 'didnt', 'thats',
+                'ill', 'id', 'ive', 'youre', 'youve', 'youll', 'youd', 'hes', 'shes',
+                'its', 'were', 'theyre', 'theyve', 'theyll', 'theyd'
+            ]);
+
+            let prevMsgTime = null;
+            let prevSender = null;
+
+            messages.forEach((msg, idx) => {
+                const content = msg.content || '';
+                const isAttachment = content.startsWith('attachments/');
+
+                // Parse date/time
+                const date = new Date(msg.timestamp);
+                const dateKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
+                const monthKey = dateKey.substring(0, 7); // YYYY-MM
+                const hour = date.getHours();
+                const dayOfWeek = date.getDay();
+
+                // Time patterns
+                messagesByDate[dateKey] = (messagesByDate[dateKey] || 0) + 1;
+                messagesByHour[hour] = (messagesByHour[hour] || 0) + 1;
+                messagesByDayOfWeek[dayOfWeek] = (messagesByDayOfWeek[dayOfWeek] || 0) + 1;
+                messagesByMonth[monthKey] = (messagesByMonth[monthKey] || 0) + 1;
+
+                // Response time tracking
+                if (prevMsgTime && msg.sender !== prevSender) {
+                    const responseTimeMs = date - prevMsgTime;
+                    const responseTimeMin = responseTimeMs / (1000 * 60);
+                    if (responseTimeMin < 1440) { // Only track if within 24 hours
+                        responseTimes.push(responseTimeMin);
+                    }
+                }
+                prevMsgTime = date;
+                prevSender = msg.sender;
+
+                // Participant stats
+                if (!participantStats[msg.sender]) {
+                    participantStats[msg.sender] = {
+                        count: 0,
+                        totalLength: 0,
+                        questions: 0,
+                        emojis: 0,
+                        attachments: 0
+                    };
+                }
+                const stats = participantStats[msg.sender];
+                stats.count++;
+
+                if (isAttachment) {
+                    stats.attachments++;
+                    return; // Skip text analysis for attachments
+                }
+
+                // Message length
+                const msgLength = content.length;
+                messageLengths.push(msgLength);
+                stats.totalLength += msgLength;
+
+                // Question detection
+                if (content.trim().endsWith('?')) {
+                    stats.questions++;
+                }
+
+                // Emoji extraction
+                const emojiRegex = /[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu;
+                const emojis = content.match(emojiRegex) || [];
+                stats.emojis += emojis.length;
+                emojis.forEach(emoji => {
+                    emojiFrequency[emoji] = (emojiFrequency[emoji] || 0) + 1;
+                });
+
+                // URL extraction
+                const urlRegex = /https?:\/\/[^\s]+/g;
+                const urls = content.match(urlRegex) || [];
+                urls.forEach(url => {
+                    try {
+                        const domain = new URL(url).hostname;
+                        urlFrequency[domain] = (urlFrequency[domain] || 0) + 1;
+                    } catch (e) {}
+                });
+
+                // Extract words (cleaned text)
+                const words = content
+                    .toLowerCase()
+                    .replace(/[^a-z0-9\s'-]/g, '')
+                    .split(/\s+/)
+                    .filter(word => word.length > 2 && !stopWords.has(word));
+
+                // Word frequency & over time
+                words.forEach(word => {
+                    wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+
+                    if (!wordOverTime[word]) {
+                        wordOverTime[word] = {};
+                    }
+                    wordOverTime[word][monthKey] = (wordOverTime[word][monthKey] || 0) + 1;
+                });
+
+                // N-grams (2-word and 3-word phrases)
+                for (let i = 0; i < words.length - 1; i++) {
+                    const bigram = `${words[i]} ${words[i + 1]}`;
+                    nGrams2[bigram] = (nGrams2[bigram] || 0) + 1;
+
+                    if (i < words.length - 2) {
+                        const trigram = `${words[i]} ${words[i + 1]} ${words[i + 2]}`;
+                        nGrams3[trigram] = (nGrams3[trigram] || 0) + 1;
+                    }
+                }
+
+                // Sentiment analysis
+                let msgSentiment = 'neutral';
+                let posCount = 0;
+                let negCount = 0;
+                words.forEach(word => {
+                    if (positiveWords.has(word)) posCount++;
+                    if (negativeWords.has(word)) negCount++;
+                });
+
+                if (posCount > negCount) msgSentiment = 'positive';
+                else if (negCount > posCount) msgSentiment = 'negative';
+
+                sentimentScores[msgSentiment]++;
+
+                if (!sentimentOverTime[monthKey]) {
+                    sentimentOverTime[monthKey] = { positive: 0, negative: 0, neutral: 0 };
+                }
+                sentimentOverTime[monthKey][msgSentiment]++;
+            });
+
+            // Sort and calculate derived data
+            const topWords = Object.entries(wordFrequency)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 100);
+
+            const topNGrams2 = Object.entries(nGrams2)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 30);
+
+            const topNGrams3 = Object.entries(nGrams3)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 30);
+
+            const topEmojis = Object.entries(emojiFrequency)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 20);
+
+            const topUrls = Object.entries(urlFrequency)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            const sortedDates = Object.keys(messagesByDate).sort();
+            const sortedMonths = Object.keys(messagesByMonth).sort();
+
+            // Calculate participant averages
+            Object.keys(participantStats).forEach(participant => {
+                const stats = participantStats[participant];
+                stats.avgLength = stats.totalLength / stats.count;
+            });
+
+            // Calculate response time stats
+            const avgResponseTime = responseTimes.length > 0
+                ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+                : 0;
+
+            const medianResponseTime = responseTimes.length > 0
+                ? responseTimes.sort((a, b) => a - b)[Math.floor(responseTimes.length / 2)]
+                : 0;
+
+            // Message length stats
+            const avgMsgLength = messageLengths.length > 0
+                ? messageLengths.reduce((a, b) => a + b, 0) / messageLengths.length
+                : 0;
+
+            const maxMsgLength = messageLengths.length > 0
+                ? Math.max(...messageLengths)
+                : 0;
+
+            console.log('Analysis complete!');
+
+            return {
+                // Word analysis
+                wordFrequency,
+                wordOverTime,
+                topWords,
+                nGrams2,
+                nGrams3,
+                topNGrams2,
+                topNGrams3,
+                totalWords: Object.values(wordFrequency).reduce((a, b) => a + b, 0),
+                uniqueWords: Object.keys(wordFrequency).length,
+
+                // Time patterns
+                messagesByDate,
+                messagesByHour,
+                messagesByDayOfWeek,
+                messagesByMonth,
+                sortedDates,
+                sortedMonths,
+
+                // Participant data
+                participantStats,
+                responseTimes,
+                avgResponseTime,
+                medianResponseTime,
+
+                // Content patterns
+                emojiFrequency,
+                topEmojis,
+                urlFrequency,
+                topUrls,
+                messageLengths,
+                avgMsgLength,
+                maxMsgLength,
+
+                // Sentiment
+                sentimentScores,
+                sentimentOverTime
+            };
+        }
+
+        // Display analysis results
+        function displayAnalysis(analysis) {
+            // Create or get analysis section
+            let analysisSection = document.getElementById('analysisSection');
+            if (!analysisSection) {
+                analysisSection = document.createElement('div');
+                analysisSection.id = 'analysisSection';
+                analysisSection.className = 'info-panel-section';
+                document.getElementById('infoPanel').appendChild(analysisSection);
+            }
+
+            // Build comprehensive HTML
+            let html = `
+                <div class="analysis-header">
+                    <h4>📊 Deep Analysis</h4>
+                    <button class="mini-btn" onclick="exportAnalysis()" title="Export JSON">💾</button>
+                </div>
+
+                <input type="text" class="search-input" placeholder="🔍 Search words..."
+                       onkeyup="searchWordAnalysis(this.value)">
+                <div id="searchResult" class="search-result"></div>
+
+                <div class="stat-grid">
+                    <div class="stat-box"><div class="stat-val">${analysis.totalWords.toLocaleString()}</div><div class="stat-lbl">Words</div></div>
+                    <div class="stat-box"><div class="stat-val">${analysis.uniqueWords.toLocaleString()}</div><div class="stat-lbl">Unique</div></div>
+                    <div class="stat-box"><div class="stat-val">${Math.round(analysis.avgMsgLength)}</div><div class="stat-lbl">Avg Len</div></div>
+                    <div class="stat-box"><div class="stat-val">${formatDuration(analysis.avgResponseTime)}</div><div class="stat-lbl">Response</div></div>
+                </div>
+
+                <div class="section" onclick="toggleSection(this)"><div class="section-title">🔤 Top Words<span class="arrow">▼</span></div><div class="section-body">`;
+
+            analysis.topWords.slice(0, 30).forEach(([word, count]) => {
+                const pct = (count / analysis.topWords[0][1]) * 100;
+                html += `<div class="word-row"><span class="w-label">${escapeHtml(word)}</span><div class="w-bar-bg"><div class="w-bar" style="width:${pct}%"></div></div><span class="w-count">${count}</span></div>`;
+            });
+            html += `</div></div>`;
+
+            html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">💬 Common Phrases<span class="arrow">▼</span></div><div class="section-body" style="display:none">`;
+            html += `<div class="sub-title">2-Word:</div>`;
+            analysis.topNGrams2.slice(0, 12).forEach(([p, c]) => html += `<div class="phrase">"${escapeHtml(p)}" <b>${c}</b></div>`);
+            html += `<div class="sub-title">3-Word:</div>`;
+            analysis.topNGrams3.slice(0, 12).forEach(([p, c]) => html += `<div class="phrase">"${escapeHtml(p)}" <b>${c}</b></div>`);
+            html += `</div></div>`;
+
+            if (analysis.topEmojis.length > 0) {
+                html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">😊 Emojis<span class="arrow">▼</span></div><div class="section-body" style="display:none"><div class="emoji-grid">`;
+                analysis.topEmojis.forEach(([e, c]) => html += `<div class="emoji-box"><div class="emoji">${e}</div><div class="e-count">${c}</div></div>`);
+                html += `</div></div></div>`;
+            }
+
+            html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">⏰ Time Patterns<span class="arrow">▼</span></div><div class="section-body" style="display:none">`;
+            html += `<div class="sub-title">Hour of Day:</div>` + renderHourHeatmap(analysis.messagesByHour);
+            html += `<div class="sub-title">Day of Week:</div>` + renderDayChart(analysis.messagesByDayOfWeek);
+            html += `<div class="time-stats">Most active: ${getMostActiveDay(analysis.messagesByDate)}<br>Median response: ${formatDuration(analysis.medianResponseTime)}</div>`;
+            html += `</div></div>`;
+
+            const totSent = analysis.sentimentScores.positive + analysis.sentimentScores.negative + analysis.sentimentScores.neutral;
+            const posPct = ((analysis.sentimentScores.positive / totSent) * 100).toFixed(0);
+            const negPct = ((analysis.sentimentScores.negative / totSent) * 100).toFixed(0);
+            const neuPct = ((analysis.sentimentScores.neutral / totSent) * 100).toFixed(0);
+            const posEnd = posPct;
+            const neuEnd = parseInt(posPct) + parseInt(neuPct);
+            html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">😊😢 Sentiment<span class="arrow">▼</span></div><div class="section-body" style="display:none">`;
+            html += `<div class="sent-bar" style="background:linear-gradient(90deg,#4ade80 0%,#4ade80 ${posEnd}%,#6b7280 ${posEnd}%,#6b7280 ${neuEnd}%,#f87171 ${neuEnd}%,#f87171 100%)"></div>`;
+            html += `<div class="sent-label">${posPct}% Positive · ${neuPct}% Neutral · ${negPct}% Negative</div></div></div>`;
+
+            html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">👥 Participants<span class="arrow">▼</span></div><div class="section-body" style="display:none">`;
+            Object.entries(analysis.participantStats).filter(([n]) => isValidSender(n)).sort((a, b) => b[1].count - a[1].count).forEach(([n, s]) => {
+                html += `<div class="part-box"><div class="part-name">${escapeHtml(n)}</div><div class="part-stats">${s.count} msg · ${Math.round(s.avgLength)} len · ${s.questions}? · ${s.emojis}😊</div></div>`;
+            });
+            html += `</div></div>`;
+
+            if (analysis.topUrls.length > 0) {
+                html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">🔗 Links<span class="arrow">▼</span></div><div class="section-body" style="display:none">`;
+                analysis.topUrls.forEach(([d, c]) => html += `<div class="url-row">${escapeHtml(d)} <b>(${c})</b></div>`);
+                html += `</div></div>`;
+            }
+
+            analysisSection.innerHTML = html;
+            analysisSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function getMostActiveDay(messagesByDate) {
+            const sorted = Object.entries(messagesByDate).sort((a, b) => b[1] - a[1]);
+            if (sorted.length === 0) return 'N/A';
+            return `${sorted[0][0]} (${sorted[0][1]} messages)`;
+        }
+
+        function toggleSection(el) {
+            const body = el.querySelector('.section-body');
+            const arrow = el.querySelector('.arrow');
+            if (body.style.display === 'none') {
+                body.style.display = 'block';
+                arrow.textContent = '▲';
+            } else {
+                body.style.display = 'none';
+                arrow.textContent = '▼';
+            }
+        }
+
+        function formatDuration(minutes) {
+            if (isNaN(minutes) || minutes === null) return '-';
+            if (minutes < 1) return `${Math.round(minutes * 60)}s`;
+            if (minutes < 60) return `${Math.round(minutes)}m`;
+            const hours = Math.floor(minutes / 60);
+            const mins = Math.round(minutes % 60);
+            return `${hours}h${mins}m`;
+        }
+
+        function renderHourHeatmap(hourData) {
+            const max = Math.max(...Object.values(hourData));
+            let html = '<div class="heatmap">';
+            for (let h = 0; h < 24; h++) {
+                const count = hourData[h] || 0;
+                const intensity = count / max;
+                const color = `rgba(59, 130, 246, ${intensity})`;
+                html += `<div class="heat-cell" style="background:${color}" title="${h}:00 - ${count} msgs"></div>`;
+            }
+            html += '</div><div class="heat-labels"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span></div>';
+            return html;
+        }
+
+        function renderDayChart(dayData) {
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            const max = Math.max(...Object.values(dayData), 1); // Ensure max is at least 1
+            let html = '<div class="day-chart">';
+            for (let d = 0; d < 7; d++) {
+                const count = dayData[d] || 0;
+                const height = Math.max((count / max) * 100, 3); // Minimum 3% height for visibility
+                html += `<div class="day-bar"><div class="day-fill" style="height:${height}%"></div><div class="day-label">${days[d]}</div><div class="day-val">${count}</div></div>`;
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function searchWordAnalysis(query) {
+            const result = document.getElementById('searchResult');
+            if (!query || query.length < 2) {
+                result.innerHTML = '';
+                return;
+            }
+            const conv = conversations[currentConversation];
+            if (!conv || !conv.analysis) return;
+
+            const word = query.toLowerCase();
+            const count = conv.analysis.wordFrequency[word];
+            if (count) {
+                result.innerHTML = `<div class="search-match">"${escapeHtml(word)}" appears <b>${count}</b> times</div>`;
+            } else {
+                result.innerHTML = `<div class="search-no-match">No matches for "${escapeHtml(query)}"</div>`;
+            }
+        }
+
+        function exportAnalysis() {
+            const conv = conversations[currentConversation];
+            if (!conv || !conv.analysis) {
+                alert('No analysis data to export');
+                return;
+            }
+
+            const data = {
+                conversation: conv.name,
+                analyzedAt: new Date().toISOString(),
+                analysis: conv.analysis
+            };
+
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${conv.name}_analysis.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Render messages
+        function renderMessages(messages) {
+            const container = document.getElementById('messagesContainer');
+            let html = '';
+            let currentDate = '';
+
+            messages.forEach((msg, index) => {
+                // Add date divider if needed
+                const msgDate = formatDate(msg.timestamp);
+                if (msgDate !== currentDate) {
+                    currentDate = msgDate;
+                    html += `<div class="date-divider"><span>${msgDate}</span></div>`;
+                }
+
+                const isSent = msg.sender === 'Me';
+                const showSender = !isSent && conversations[currentConversation]?.isGroup;
+
+                html += `
+                    <div class="message ${isSent ? 'sent' : 'received'}">
+                        ${showSender ? `<div class="message-sender">${escapeHtml(msg.sender)}</div>` : ''}
+                        <div class="message-bubble">
+                            ${renderMessageContent(msg.content)}
+                        </div>
+                        <div class="message-time">${formatTime(msg.timestamp)}</div>
+                        ${msg.readInfo ? `<div class="read-receipt">${escapeHtml(msg.readInfo)}</div>` : ''}
+                        ${msg.editInfo ? `<div class="edited-indicator">${escapeHtml(msg.editInfo)}</div>` : ''}
+                        ${msg.reactions.length > 0 ? `
+                            <div class="message-reactions">
+                                ${msg.reactions.map(r => `<span class="reaction">${escapeHtml(r)}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Show image in modal
+        function showImageModal(src) {
+            const modal = document.getElementById('imageModal');
+            const img = document.getElementById('modalImage');
+            img.src = src;
+            modal.classList.add('active');
+        }
+
+        // Close modal
+        document.getElementById('imageModal').addEventListener('click', () => {
+            document.getElementById('imageModal').classList.remove('active');
+        });
+
+        // Search functionality
+        document.getElementById('searchBox').addEventListener('input', (e) => {
+            renderConversationList(e.target.value);
+        });
+
+        // Load conversations from embedded data
+        async function loadConversations() {
+            const data = window.IMESSAGE_DATA;
+
+            conversations = Object.entries(data).map(([filename, content]) => {
+                const messages = parseMessages(content, filename);
+                const name = getDisplayName(filename);
+                const lastMsg = messages[messages.length - 1];
+
+                return {
+                    filename,
+                    name,
+                    initials: getInitials(name),
+                    isGroup: isGroupChat(filename),
+                    messages,
+                    preview: lastMsg?.content?.substring(0, 50) || 'No messages',
+                    lastTime: lastMsg ? formatTime(lastMsg.timestamp) : '',
+                    lastTimestamp: lastMsg ? new Date(lastMsg.timestamp).getTime() : 0
+                };
+            }).filter(c => c.messages.length > 0)
+              .sort((a, b) => b.lastTimestamp - a.lastTimestamp);
+
+            renderConversationList();
+
+            // Update stats
+            const totalMessages = conversations.reduce((sum, c) => sum + c.messages.length, 0);
+            document.getElementById('statsBar').textContent =
+                `${conversations.length} conversations, ${totalMessages.toLocaleString()} messages`;
+        }
+
+        // Initialize - only auto-load if not using Tauri (Tauri uses onboarding flow)
+        // The onboarding module handles initialization for Tauri
+        // Delay check to give Tauri plenty of time to inject its API (must be longer than polling time)
+        setTimeout(() => {
+            console.log('3-second timeout check: isTauri=', window.appState.isTauri, '__TAURI__=', !!window.__TAURI__);
+            // Only proceed if Tauri was never detected AND we're not in onboarding
+            if (!window.appState.isTauri && !window.__TAURI__ && window.IMESSAGE_DATA && Object.keys(window.IMESSAGE_DATA).length > 0) {
+                console.log('3-second timeout: Hiding onboarding overlay');
+                document.getElementById('onboardingOverlay').classList.add('hidden');
+                loadConversations();
+            }
+        }, 3000);
+    </script>
+
+</body>
+</html>

@@ -1466,7 +1466,15 @@
             // Group messages by chat_id for better grouping
             const byChat = {};
             messages.forEach(msg => {
+                // Skip messages with no chat_id and empty identifier (system messages)
+                if (!msg.chat_id && (!msg.contact_identifier || msg.contact_identifier === '')) {
+                    return;
+                }
                 const chatKey = msg.chat_id || msg.contact_identifier || 'Unknown';
+                // Skip if chatKey is 'Unknown' and we don't have a valid identifier
+                if (chatKey === 'Unknown' || chatKey === '' || chatKey === 0) {
+                    return;
+                }
                 if (!byChat[chatKey]) {
                     byChat[chatKey] = {
                         messages: [],
@@ -1507,6 +1515,19 @@
                 }
             });
 
+            // Helper to convert reaction type to emoji
+            function reactionTypeToEmoji(type) {
+                const reactions = {
+                    2000: '❤️',  // love
+                    2001: '👍',  // like
+                    2002: '👎',  // dislike
+                    2003: '😂',  // laugh
+                    2004: '‼️',  // emphasis
+                    2005: '❓',  // question
+                };
+                return reactions[type] || '👍';
+            }
+
             // Convert to IMESSAGE_DATA format for compatibility with existing viewer
             const data = {};
             Object.entries(byChat).forEach(([chatKey, chatData]) => {
@@ -1527,38 +1548,50 @@
                         hour: 'numeric', minute: '2-digit', second: '2-digit'
                     });
 
-                    // For sender, resolve the individual sender's name
-                    let sender = 'Me';
-                    if (!msg.is_from_me) {
-                        // For group chats, look up the individual sender
-                        // msg.contact_identifier is the individual sender's phone/email
-                        const senderId = msg.contact_identifier;
-
-                        // Try to find the sender's name from our chats
-                        const senderChat = chats.find(c =>
-                            !c.is_group &&
-                            (c.chat_identifier === senderId ||
-                             (c.participants && c.participants.length === 1))
-                        );
-
-                        if (senderChat && senderChat.display_name) {
-                            sender = senderChat.display_name;
-                        } else if (senderNameLookup[senderId]) {
-                            sender = senderNameLookup[senderId];
-                        } else if (matchingChat && matchingChat.participants) {
-                            // Try to find in participants (they're already resolved)
-                            const found = matchingChat.participants.find(p =>
-                                p.includes(senderId) || senderId.includes(p.replace(/\D/g, ''))
-                            );
-                            sender = found || senderId || displayName;
-                        } else {
-                            sender = senderId || displayName;
-                        }
+                    // Use the pre-resolved sender_name from backend
+                    let sender = msg.sender_name || 'Me';
+                    if (sender === 'Unknown' || sender === '') {
+                        sender = msg.contact_identifier || 'Unknown';
                     }
 
-                    const text = msg.text || (msg.has_attachment ? '[Attachment]' : '[No text]');
+                    // Build message text with attachments
+                    let text = msg.text || '';
 
-                    return `${dateStr}\n${sender}\n${text}\n`;
+                    // Add attachment info if present
+                    if (msg.attachments && msg.attachments.length > 0) {
+                        const attachmentText = msg.attachments.map(a => {
+                            const name = a.transfer_name || a.filename || 'Attachment';
+                            const type = a.mime_type || '';
+                            if (type.startsWith('image/')) {
+                                return `[Image: ${name}]`;
+                            } else if (type.startsWith('video/')) {
+                                return `[Video: ${name}]`;
+                            } else if (type.startsWith('audio/')) {
+                                return `[Audio: ${name}]`;
+                            } else {
+                                return `[Attachment: ${name}]`;
+                            }
+                        }).join('\n');
+                        text = text ? `${text}\n${attachmentText}` : attachmentText;
+                    }
+
+                    if (!text) {
+                        text = '[No content]';
+                    }
+
+                    // Build the message block
+                    let block = `${dateStr}\n${sender}\n${text}\n`;
+
+                    // Add reactions/tapbacks if present
+                    if (msg.reactions && msg.reactions.length > 0) {
+                        block += 'Tapbacks:\n';
+                        msg.reactions.forEach(r => {
+                            const emoji = reactionTypeToEmoji(r.reaction_type);
+                            block += `${emoji} ${r.sender}\n`;
+                        });
+                    }
+
+                    return block;
                 }).join('\n');
 
                 data[displayName + '.txt'] = content;
@@ -1936,7 +1969,9 @@
             if (sender.startsWith('Edited ') ||
                 sender.startsWith('Tapbacks:') ||
                 sender.includes('This message responded to') ||
-                sender.startsWith('attachments/')) {
+                sender.startsWith('attachments/') ||
+                sender === 'Unknown' ||
+                sender === 'System') {
                 return false;
             }
 

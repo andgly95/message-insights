@@ -1,0 +1,17 @@
+{
+  "name": "message-insights",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Privacy-first native macOS app for viewing and analyzing your Messages",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.9.4"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.9.0"
+  }
+}

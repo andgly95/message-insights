@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iMessage Archive</title>
+    <title>Message Insights</title>
     <style>
         * {
             margin: 0;
@@ -50,10 +50,35 @@
             border-bottom: 1px solid var(--border-color);
         }
 
+        .sidebar-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
         .sidebar-header h1 {
             font-size: 24px;
             font-weight: 700;
-            margin-bottom: 12px;
+            margin: 0;
+        }
+
+        .reload-btn {
+            background: var(--bg-tertiary);
+            border: none;
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .reload-btn:hover {
+            background: var(--blue-bubble);
+            color: white;
         }
 
         .search-box {
@@ -179,6 +204,17 @@
             overflow-y: auto;
             overflow-x: hidden;
             padding: 16px 20px;
+        }
+
+        /* Virtual scrolling */
+        .virtual-spacer-top,
+        .virtual-spacer-bottom {
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .virtual-content {
+            min-height: 1px;
         }
 
         .date-divider {
@@ -314,6 +350,22 @@
             justify-content: center;
             color: var(--text-secondary);
             font-size: 16px;
+        }
+
+        .attachment-container {
+            min-height: 200px;
+            max-width: 300px;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .attachment-container.loaded {
+            min-height: unset;
+            background: transparent;
         }
 
         .attachment-image {
@@ -570,7 +622,7 @@
         .section-title:hover {background: var(--bg-primary);}
         .arrow {font-size: 10px; color: var(--text-secondary);}
         .section-body {padding: 0 12px 12px 12px;}
-        .sub-title {font-size: 11px; font-weight: 600; color: var(--text-secondary); margin: 8px 0 4px 0; text-transform: uppercase;}
+        .sub-title {font-size: 11px; font-weight: 600; color: var(--text-secondary); margin: 8px 0 8px 0; text-transform: uppercase;}
 
         .word-row {display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px;}
         .w-label {min-width: 70px; font-weight: 500;}
@@ -590,10 +642,10 @@
         .heat-cell {height: 20px; border-radius: 2px; cursor: pointer;}
         .heat-labels {display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary);}
 
-        .day-chart {display: flex; gap: 8px; margin-top: 8px; height: 100px; align-items: flex-end;}
+        .day-chart {display: flex; gap: 8px; margin-top: 24px; margin-bottom: 24px; height: 100px; align-items: flex-end; padding-bottom: 20px;}
         .day-bar {flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative;}
         .day-fill {width: 100%; background: var(--blue-bubble); border-radius: 4px 4px 0 0; margin-bottom: 4px;}
-        .day-label {font-size: 10px; color: var(--text-secondary);}
+        .day-label {font-size: 10px; color: var(--text-secondary); position: absolute; bottom: -18px;}
         .day-val {font-size: 11px; color: var(--text-primary); font-weight: 600; position: absolute; top: -18px;}
 
         .time-stats {font-size: 11px; color: var(--text-secondary); margin-top: 12px; line-height: 1.5;}
@@ -607,12 +659,446 @@
 
         .url-row {font-size: 12px; padding: 4px 0; color: var(--text-secondary);}
         .url-row b {color: var(--text-primary);}
+
+        /* Onboarding Overlay */
+        .onboarding-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg-primary);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .onboarding-overlay.hidden {
+            display: none;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .onboarding-card {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .onboarding-icon {
+            font-size: 64px;
+            margin-bottom: 24px;
+        }
+
+        .onboarding-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .onboarding-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .onboarding-btn {
+            padding: 14px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 8px;
+        }
+
+        .onboarding-btn-primary {
+            background: var(--blue-bubble);
+            color: white;
+        }
+
+        .onboarding-btn-primary:hover {
+            background: #0a6fd9;
+        }
+
+        .onboarding-btn-secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .onboarding-btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .onboarding-btn-link {
+            background: transparent;
+            color: var(--text-secondary);
+            text-decoration: underline;
+            padding: 8px 16px;
+        }
+
+        .onboarding-btn-link:hover {
+            color: var(--text-primary);
+            background: transparent;
+        }
+
+        .onboarding-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .permission-steps {
+            text-align: left;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+
+        .permission-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+        }
+
+        .step-number {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--blue-bubble);
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .step-text {
+            font-size: 14px;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        .error-message {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.3);
+            color: #ff3b30;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        .success-message {
+            background: rgba(52, 199, 89, 0.1);
+            border: 1px solid rgba(52, 199, 89, 0.3);
+            color: #34c759;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 14px;
+        }
+
+        /* Date/Contact Selection */
+        .selection-form {
+            text-align: left;
+            margin: 24px 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--blue-bubble);
+        }
+
+        .date-inputs {
+            display: flex;
+            gap: 12px;
+        }
+
+        .date-inputs .form-input {
+            flex: 1;
+        }
+
+        .contact-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 8px;
+            margin-top: 8px;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .contact-item:hover {
+            background: var(--bg-primary);
+        }
+
+        .contact-item.selected {
+            background: rgba(11, 132, 254, 0.2);
+        }
+
+        .contact-checkbox {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--blue-bubble);
+        }
+
+        .contact-info {
+            flex: 1;
+        }
+
+        .contact-name {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .contact-count {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .stats-preview {
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--blue-bubble);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--bg-tertiary);
+            border-top-color: var(--blue-bubble);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
+    <!-- Onboarding Overlay -->
+    <div class="onboarding-overlay" id="onboardingOverlay">
+        <!-- Step 1: Welcome -->
+        <div class="onboarding-card" id="welcomeStep">
+            <div class="onboarding-icon">💬</div>
+            <h1 class="onboarding-title">Welcome to Message Insights</h1>
+            <p class="onboarding-subtitle">
+                Explore and analyze your iMessage conversations with powerful insights and beautiful visualizations. All data stays on your device.
+            </p>
+            <button class="onboarding-btn onboarding-btn-primary" onclick="checkPermissions()">
+                Get Started
+            </button>
+        </div>
+
+        <!-- Step 2: Permission Required -->
+        <div class="onboarding-card hidden" id="permissionStep">
+            <div class="onboarding-icon">🔐</div>
+            <h1 class="onboarding-title">Permission Required</h1>
+            <p class="onboarding-subtitle">
+                To read your messages, Message Insights needs Full Disk Access permission.
+            </p>
+            <div class="permission-steps">
+                <div class="permission-step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">Open <strong>System Settings</strong> (or System Preferences)</div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">Go to <strong>Privacy & Security</strong> → <strong>Full Disk Access</strong></div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">Click <strong>+</strong> and add <strong>Message Insights</strong></div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">4</div>
+                    <div class="step-text">Restart the app after granting permission</div>
+                </div>
+            </div>
+            <div id="permissionError" class="error-message hidden"></div>
+            <button class="onboarding-btn onboarding-btn-primary" onclick="openSystemPreferences()">
+                Open System Settings
+            </button>
+            <button class="onboarding-btn onboarding-btn-secondary" onclick="retryPermissionCheck()">
+                Check Again
+            </button>
+        </div>
+
+        <!-- Step 3: Contacts Permission (Optional) -->
+        <div class="onboarding-card hidden" id="contactsPermissionStep">
+            <div class="onboarding-icon">👤</div>
+            <h1 class="onboarding-title">Show Contact Names?</h1>
+            <p class="onboarding-subtitle">
+                To display contact names instead of phone numbers, grant Contacts access.
+            </p>
+            <div class="permission-steps">
+                <div class="permission-step">
+                    <div class="step-number">1</div>
+                    <div class="step-text">Open <strong>System Settings</strong> → <strong>Privacy & Security</strong> → <strong>Contacts</strong></div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">2</div>
+                    <div class="step-text">Click <strong>+</strong> and add <strong>Message Insights</strong></div>
+                </div>
+                <div class="permission-step">
+                    <div class="step-number">3</div>
+                    <div class="step-text">Make sure the toggle is <strong>ON</strong></div>
+                </div>
+            </div>
+            <button class="onboarding-btn onboarding-btn-primary" onclick="openContactsPreferences()">
+                Open Contacts Settings
+            </button>
+            <button class="onboarding-btn onboarding-btn-secondary" onclick="checkContactsAndContinue()">
+                Check & Continue
+            </button>
+            <button class="onboarding-btn onboarding-btn-link" onclick="skipContactsPermission()">
+                Skip (show phone numbers only)
+            </button>
+        </div>
+
+        <!-- Step 4: Loading Data -->
+        <div class="onboarding-card hidden" id="loadingStep">
+            <div class="loading-spinner"></div>
+            <h1 class="onboarding-title">Loading Your Messages</h1>
+            <p class="onboarding-subtitle" id="loadingStatus">Connecting to your message database...</p>
+        </div>
+
+        <!-- Step 4: Data Selection -->
+        <div class="onboarding-card hidden" id="selectionStep" style="max-width: 600px;">
+            <div class="onboarding-icon">📊</div>
+            <h1 class="onboarding-title">Your Message History</h1>
+
+            <div class="stats-preview">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="previewTotalMessages">-</div>
+                        <div class="stat-label">Total Messages</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="previewContacts">-</div>
+                        <div class="stat-label">Contacts</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="previewSent">-</div>
+                        <div class="stat-label">Sent</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="previewReceived">-</div>
+                        <div class="stat-label">Received</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="selection-form">
+                <div class="form-group">
+                    <label class="form-label">Date Range (Optional)</label>
+                    <div class="date-inputs">
+                        <input type="date" class="form-input" id="startDate" placeholder="Start Date">
+                        <input type="date" class="form-input" id="endDate" placeholder="End Date">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Filter Contacts (Optional - leave empty for all)</label>
+                    <input type="text" class="form-input" id="contactSearch" placeholder="Search contacts...">
+                    <div class="contact-list" id="contactList">
+                        <!-- Contacts will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <button class="onboarding-btn onboarding-btn-primary" onclick="loadMessages()">
+                Load Messages
+            </button>
+            <button class="onboarding-btn onboarding-btn-secondary" onclick="loadAllMessages()">
+                Load All (No Filter)
+            </button>
+        </div>
+    </div>
+
     <div class="sidebar">
         <div class="sidebar-header">
-            <h1>Messages</h1>
+            <div class="sidebar-title-row">
+                <h1>Messages</h1>
+                <button class="reload-btn" onclick="showImportScreen()" title="Change filters or refresh messages">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 4v6h6M23 20v-6h-6"/>
+                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                    </svg>
+                </button>
+            </div>
             <input type="text" class="search-box" placeholder="Search conversations..." id="searchBox">
         </div>
         <div class="conversation-list" id="conversationList">
@@ -679,9 +1165,589 @@
         <img src="" alt="Full size image" id="modalImage">
     </div>
 
-    <!-- Message data will be injected here by the Python script -->
+    <!-- Tauri API Integration -->
     <script>
-        window.IMESSAGE_DATA = {};
+        // Global state
+        window.appState = {
+            contacts: [],
+            stats: null,
+            selectedContacts: [],
+            messages: [],
+            isTauri: false
+        };
+
+        // Show/hide onboarding steps
+        function showStep(stepId) {
+            console.log('Showing step:', stepId);
+            document.querySelectorAll('.onboarding-card').forEach(function(el) { el.classList.add('hidden'); });
+            var stepEl = document.getElementById(stepId);
+            if (stepEl) stepEl.classList.remove('hidden');
+        }
+
+        // Get Tauri invoke function
+        function getTauriInvoke() {
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+                return window.__TAURI__.core.invoke;
+            } else if (window.__TAURI__ && window.__TAURI__.invoke) {
+                return window.__TAURI__.invoke;
+            }
+            return null;
+        }
+
+        // Check database permissions
+        window.checkPermissions = async function() {
+            console.log('checkPermissions called');
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Checking database access...';
+
+            var invoke = getTauriInvoke();
+            if (!invoke) {
+                console.error('Tauri invoke not available');
+                showStep('permissionStep');
+                document.getElementById('permissionError').textContent = 'Tauri API not available. Please restart the app.';
+                document.getElementById('permissionError').classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const status = await invoke('check_database_access');
+                console.log('Database status:', status);
+
+                if (status.accessible) {
+                    // Database access granted, now check contacts access
+                    document.getElementById('loadingStatus').textContent = 'Checking contacts access...';
+                    const hasContacts = await invoke('check_contacts_access');
+                    console.log('Has contacts access:', hasContacts);
+
+                    if (hasContacts) {
+                        // Both permissions granted, proceed to load data
+                        await loadDatabaseStats();
+                    } else {
+                        // Show contacts permission step
+                        showStep('contactsPermissionStep');
+                    }
+                } else {
+                    showStep('permissionStep');
+                    const errorEl = document.getElementById('permissionError');
+                    if (status.error) {
+                        errorEl.textContent = status.error;
+                        errorEl.classList.remove('hidden');
+                    }
+                }
+            } catch (error) {
+                console.error('Permission check error:', error);
+                showStep('permissionStep');
+                const errorEl = document.getElementById('permissionError');
+                errorEl.textContent = 'Error: ' + error;
+                errorEl.classList.remove('hidden');
+            }
+        };
+
+        // Open System Preferences
+        window.openSystemPreferences = async function() {
+            console.log('openSystemPreferences called');
+            var invoke = getTauriInvoke();
+            if (invoke) {
+                try {
+                    await invoke('open_system_preferences');
+                    console.log('System Preferences opened successfully');
+                    return;
+                } catch (e) {
+                    console.error('Error opening system preferences:', e);
+                }
+            }
+            alert('Please open System Settings > Privacy & Security > Full Disk Access manually and add Message Insights to the list.');
+        };
+
+        // Retry permission check
+        window.retryPermissionCheck = async function() {
+            await window.checkPermissions();
+        };
+
+        // Open Contacts Preferences
+        window.openContactsPreferences = async function() {
+            console.log('openContactsPreferences called');
+            var invoke = getTauriInvoke();
+            if (invoke) {
+                try {
+                    await invoke('open_contacts_preferences');
+                    console.log('Contacts Preferences opened successfully');
+                    return;
+                } catch (e) {
+                    console.error('Error opening contacts preferences:', e);
+                }
+            }
+            alert('Please open System Settings > Privacy & Security > Contacts manually and add Message Insights to the list.');
+        };
+
+        // Check contacts and continue
+        window.checkContactsAndContinue = async function() {
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Checking contacts access...';
+            await loadDatabaseStats();
+        };
+
+        // Skip contacts permission
+        window.skipContactsPermission = async function() {
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Loading without contact names...';
+            await loadDatabaseStats();
+        };
+
+        // Show import screen (go back to selection)
+        window.showImportScreen = async function() {
+            // Clear selected contacts
+            window.appState.selectedContacts = [];
+            // Show the onboarding overlay and selection step
+            document.getElementById('onboardingOverlay').classList.remove('hidden');
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Refreshing data...';
+            await loadDatabaseStats();
+        };
+
+        // Load database statistics
+        async function loadDatabaseStats() {
+            document.getElementById('loadingStatus').textContent = 'Loading message statistics...';
+
+            var invoke = getTauriInvoke();
+            if (!invoke) {
+                console.error('Tauri invoke not available in loadDatabaseStats');
+                return;
+            }
+
+            try {
+                const stats = await invoke('get_chat_stats', { options: null });
+                window.appState.stats = stats;
+
+                document.getElementById('previewTotalMessages').textContent = stats.total_messages.toLocaleString();
+                document.getElementById('previewContacts').textContent = stats.total_contacts.toLocaleString();
+                document.getElementById('previewSent').textContent = stats.messages_sent.toLocaleString();
+                document.getElementById('previewReceived').textContent = stats.messages_received.toLocaleString();
+
+                // Set date range defaults
+                if (stats.date_range_start) {
+                    const startDate = new Date(stats.date_range_start * 1000);
+                    document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
+                    document.getElementById('startDate').min = startDate.toISOString().split('T')[0];
+                }
+                if (stats.date_range_end) {
+                    const endDate = new Date(stats.date_range_end * 1000);
+                    document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
+                    document.getElementById('endDate').max = endDate.toISOString().split('T')[0];
+                }
+
+                // Load chats (conversations)
+                document.getElementById('loadingStatus').textContent = 'Loading conversations...';
+                const chats = await invoke('get_chats');
+                window.appState.chats = chats;
+                window.appState.contacts = chats; // For backwards compatibility
+                renderChatList(chats);
+
+                showStep('selectionStep');
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                showStep('permissionStep');
+                const errorEl = document.getElementById('permissionError');
+                errorEl.textContent = 'Error loading data: ' + error;
+                errorEl.classList.remove('hidden');
+            }
+        }
+
+        // Get display name for a chat
+        function getChatDisplayName(chat) {
+            // If chat has a display name (usually group chats), use it
+            if (chat.display_name) {
+                return chat.display_name;
+            }
+            // For individual chats or group chats without names, show participants
+            if (chat.participants && chat.participants.length > 0) {
+                if (chat.participants.length === 1) {
+                    return chat.participants[0];
+                }
+                // For group chats, show first few participants
+                const names = chat.participants.slice(0, 3).join(', ');
+                if (chat.participants.length > 3) {
+                    return names + ' +' + (chat.participants.length - 3) + ' more';
+                }
+                return names;
+            }
+            return chat.chat_identifier || 'Unknown';
+        }
+
+        // Render chat list
+        function renderChatList(chats) {
+            const container = document.getElementById('contactList');
+            container.innerHTML = chats.slice(0, 100).map(chat => {
+                const displayName = getChatDisplayName(chat);
+                const isGroup = chat.is_group || (chat.participants && chat.participants.length > 1);
+                const icon = isGroup ? '👥' : '💬';
+                const subtitle = isGroup && chat.participants
+                    ? `${chat.participants.length} participants · ${chat.message_count.toLocaleString()} messages`
+                    : `${chat.message_count.toLocaleString()} messages`;
+
+                return `
+                <div class="contact-item" data-id="${chat.id}" onclick="toggleContact(${chat.id})">
+                    <input type="checkbox" class="contact-checkbox" id="contact-${chat.id}">
+                    <div class="contact-info">
+                        <div class="contact-name">${icon} ${escapeHtml(displayName)}</div>
+                        <div class="contact-count">${subtitle}</div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // Legacy function for backwards compatibility
+        function renderContactList(contacts) {
+            renderChatList(contacts);
+        }
+
+        // Toggle contact selection
+        window.toggleContact = function(id) {
+            const checkbox = document.getElementById(`contact-${id}`);
+            const item = checkbox.closest('.contact-item');
+            checkbox.checked = !checkbox.checked;
+            item.classList.toggle('selected', checkbox.checked);
+
+            if (checkbox.checked) {
+                window.appState.selectedContacts.push(id);
+            } else {
+                window.appState.selectedContacts = window.appState.selectedContacts.filter(c => c !== id);
+            }
+        };
+
+        // Chat search filter
+        document.getElementById('contactSearch').addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const chats = window.appState.chats || window.appState.contacts || [];
+            const filtered = chats.filter(c => {
+                const displayName = getChatDisplayName(c).toLowerCase();
+                const identifier = (c.chat_identifier || '').toLowerCase();
+                const participants = (c.participants || []).join(' ').toLowerCase();
+                return displayName.includes(query) || identifier.includes(query) || participants.includes(query);
+            });
+            renderChatList(filtered);
+        });
+
+        // Load messages with filters
+        window.loadMessages = async function() {
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Loading messages...';
+
+            var invoke = getTauriInvoke();
+            if (!invoke) {
+                console.error('Tauri invoke not available in loadMessages');
+                alert('Tauri API not available. Please restart the app.');
+                return;
+            }
+
+            const options = {};
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            if (startDate) {
+                options.start_date = Math.floor(new Date(startDate).getTime() / 1000);
+            }
+            if (endDate) {
+                options.end_date = Math.floor(new Date(endDate + 'T23:59:59').getTime() / 1000);
+            }
+            if (window.appState.selectedContacts.length > 0) {
+                options.contact_ids = window.appState.selectedContacts;
+            }
+
+            try {
+                const messages = await invoke('get_messages', { options: Object.keys(options).length > 0 ? options : null, limit: null });
+                window.appState.messages = messages;
+                processMessagesForViewer(messages);
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                alert('Error loading messages: ' + error);
+                showStep('selectionStep');
+            }
+        };
+
+        // Load all messages without filters
+        window.loadAllMessages = async function() {
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Loading all messages...';
+
+            var invoke = getTauriInvoke();
+            if (!invoke) {
+                console.error('Tauri invoke not available in loadAllMessages');
+                alert('Tauri API not available. Please restart the app.');
+                return;
+            }
+
+            try {
+                const messages = await invoke('get_messages', { options: null, limit: null });
+                window.appState.messages = messages;
+                processMessagesForViewer(messages);
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                alert('Error loading messages: ' + error);
+                showStep('selectionStep');
+            }
+        };
+
+        // Build identifier to name lookup from chats data
+        function buildNameLookup() {
+            const lookup = {};
+            const chats = window.appState.chats || [];
+            chats.forEach(chat => {
+                // For individual chats with a display_name
+                if (chat.display_name && chat.participants && chat.participants.length === 1) {
+                    // Map the raw identifier to the resolved name
+                    // The chat_identifier is usually like "chat123456" or "+1234567890"
+                    if (chat.chat_identifier) {
+                        lookup[chat.chat_identifier] = chat.display_name;
+                    }
+                }
+                // Also map participants to themselves (they're already resolved)
+                if (chat.participants) {
+                    chat.participants.forEach((participant, idx) => {
+                        // If this participant looks like a resolved name (not a phone/email), store it
+                        // The backend already resolved names in the participants array
+                        const rawId = chat.chat_identifier;
+                        if (rawId && chat.participants.length === 1) {
+                            lookup[rawId] = participant;
+                        }
+                    });
+                }
+            });
+            return lookup;
+        }
+
+        // Process messages and prepare for viewer
+        function processMessagesForViewer(messages) {
+            console.log('processMessagesForViewer called with', messages.length, 'messages');
+            document.getElementById('loadingStatus').textContent = 'Processing messages...';
+
+            // Build name lookup from chats
+            const nameLookup = buildNameLookup();
+            console.log('Name lookup built:', Object.keys(nameLookup).length, 'entries');
+
+            // Also create a direct lookup from chat participants
+            const chats = window.appState.chats || [];
+            const participantNames = {};
+            chats.forEach(chat => {
+                if (chat.display_name && chat.participants && chat.participants.length >= 1) {
+                    // Map display_name to itself for later use
+                    participantNames[chat.chat_identifier] = chat.display_name;
+                }
+                // The participants array already has resolved names
+                // Map identifiers we see in messages to the names from chats
+            });
+
+            // Group messages by chat_id for better grouping
+            const byChat = {};
+            messages.forEach(msg => {
+                // Skip messages with no chat_id and empty identifier (system messages)
+                if (!msg.chat_id && (!msg.contact_identifier || msg.contact_identifier === '')) {
+                    return;
+                }
+                const chatKey = msg.chat_id || msg.contact_identifier || 'Unknown';
+                // Skip if chatKey is 'Unknown' and we don't have a valid identifier
+                if (chatKey === 'Unknown' || chatKey === '' || chatKey === 0) {
+                    return;
+                }
+                if (!byChat[chatKey]) {
+                    byChat[chatKey] = {
+                        messages: [],
+                        identifier: msg.contact_identifier
+                    };
+                }
+                byChat[chatKey].messages.push(msg);
+            });
+
+            // Find resolved name for each chat
+            const chatNames = {};
+            Object.entries(byChat).forEach(([chatKey, chatData]) => {
+                // Look for this chat in our chats data
+                const matchingChat = chats.find(c => c.id == chatKey || c.chat_identifier === chatData.identifier);
+                if (matchingChat) {
+                    chatNames[chatKey] = getChatDisplayName(matchingChat);
+                } else {
+                    chatNames[chatKey] = chatData.identifier || 'Unknown';
+                }
+            });
+
+            // Build a lookup for individual sender names
+            const senderNameLookup = {};
+            chats.forEach(chat => {
+                // For each chat, if it has 1 participant with a resolved name, map identifier to name
+                if (chat.participants && chat.participants.length === 1 && chat.display_name) {
+                    // The chat_identifier for individual chats is often the phone/email
+                    senderNameLookup[chat.chat_identifier] = chat.display_name;
+                }
+                // Also, participants array already has resolved names, so we can use them
+                // But we need to map the original identifier to the name
+            });
+
+            // Also look through all chats to build identifier->name mapping
+            chats.forEach(chat => {
+                if (chat.display_name && !chat.is_group && chat.chat_identifier) {
+                    senderNameLookup[chat.chat_identifier] = chat.display_name;
+                }
+            });
+
+            // Helper to convert reaction type to emoji
+            function reactionTypeToEmoji(type) {
+                const reactions = {
+                    2000: '❤️',  // love
+                    2001: '👍',  // like
+                    2002: '👎',  // dislike
+                    2003: '😂',  // laugh
+                    2004: '‼️',  // emphasis
+                    2005: '❓',  // question
+                };
+                return reactions[type] || '👍';
+            }
+
+            // Convert to IMESSAGE_DATA format for compatibility with existing viewer
+            const data = {};
+            Object.entries(byChat).forEach(([chatKey, chatData]) => {
+                const msgs = chatData.messages;
+                const displayName = chatNames[chatKey] || chatData.identifier || 'Unknown';
+                const matchingChat = chats.find(c => c.id == chatKey || c.chat_identifier === chatData.identifier);
+                const isGroupChat = matchingChat ? matchingChat.is_group : false;
+
+                // Sort messages by date (oldest first for display)
+                msgs.sort((a, b) => a.date - b.date);
+
+                // Format messages as text content
+                const content = msgs.map(msg => {
+                    const date = new Date(msg.date * 1000);
+                    const dateStr = date.toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric'
+                    }) + ' ' + date.toLocaleTimeString('en-US', {
+                        hour: 'numeric', minute: '2-digit', second: '2-digit'
+                    });
+
+                    // Use the pre-resolved sender_name from backend
+                    let sender = msg.sender_name || 'Me';
+                    if (sender === 'Unknown' || sender === '') {
+                        sender = msg.contact_identifier || 'Unknown';
+                    }
+
+                    // Build message text with attachments
+                    let text = msg.text || '';
+
+                    // Add attachment info if present
+                    if (msg.attachments && msg.attachments.length > 0) {
+                        const attachmentParts = msg.attachments
+                            .filter(a => {
+                                const name = a.transfer_name || (a.filename ? a.filename.split('/').pop() : '');
+                                // Skip plugin payload attachments (link preview metadata)
+                                if (name.includes('pluginPayloadAttachment')) return false;
+                                // Skip group photo changes - they're events, not content
+                                if (name === 'GroupPhotoImage') return false;
+                                return true;
+                            })
+                            .map(a => {
+                                const name = a.transfer_name || (a.filename ? a.filename.split('/').pop() : 'Attachment');
+                                const type = a.mime_type || '';
+                                const path = a.filename || '';
+
+                                // Use local-file: prefix for paths the viewer can render
+                                if (path && (type.startsWith('image/') || type.startsWith('video/'))) {
+                                    return `local-file:${path}`;
+                                } else if (type.startsWith('image/')) {
+                                    return `[Image: ${name}]`;
+                                } else if (type.startsWith('video/')) {
+                                    return `[Video: ${name}]`;
+                                } else if (type.startsWith('audio/')) {
+                                    return `[Audio: ${name}]`;
+                                } else {
+                                    return `[Attachment: ${name}]`;
+                                }
+                            });
+
+                        // Only add attachment text if there are real attachments
+                        if (attachmentParts.length > 0) {
+                            const attachmentText = attachmentParts.join('\n');
+                            // Don't duplicate if text already contains the attachment reference
+                            if (!text.includes('local-file:')) {
+                                text = text ? `${text}\n${attachmentText}` : attachmentText;
+                            }
+                        }
+                    }
+
+                    if (!text) {
+                        text = '[No content]';
+                    }
+
+                    // Build the message block
+                    let block = `${dateStr}\n${sender}\n${text}\n`;
+
+                    // Add reactions/tapbacks if present
+                    if (msg.reactions && msg.reactions.length > 0) {
+                        block += 'Tapbacks:\n';
+                        msg.reactions.forEach(r => {
+                            const emoji = reactionTypeToEmoji(r.reaction_type);
+                            block += `${emoji} ${r.sender}\n`;
+                        });
+                    }
+
+                    return block;
+                }).join('\n');
+
+                data[displayName + '.txt'] = content;
+            });
+
+            window.IMESSAGE_DATA = data;
+
+            // Hide onboarding and load conversations
+            console.log('processMessagesForViewer: Hiding onboarding overlay');
+            document.getElementById('onboardingOverlay').classList.add('hidden');
+            loadConversations();
+        }
+
+        // Escape HTML for safe rendering
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize - show welcome screen
+        var tauriCheckAttempts = 0;
+        var maxTauriCheckAttempts = 20; // 2 seconds total
+
+        function initApp() {
+            console.log('initApp called, attempt:', tauriCheckAttempts, '__TAURI__:', !!window.__TAURI__);
+
+            // Check if we have Tauri API available
+            if (window.__TAURI__) {
+                console.log('Tauri detected, showing welcome step');
+                window.appState.isTauri = true;
+                showStep('welcomeStep');
+            } else if (tauriCheckAttempts < maxTauriCheckAttempts) {
+                // Retry - Tauri may not have injected API yet
+                tauriCheckAttempts++;
+                setTimeout(initApp, 100);
+            } else {
+                // Fallback for non-Tauri environment (browser preview)
+                console.log('initApp FALLBACK: Running outside Tauri after', maxTauriCheckAttempts, 'attempts');
+                console.log('initApp FALLBACK: Hiding onboarding overlay');
+                document.getElementById('onboardingOverlay').classList.add('hidden');
+                if (window.IMESSAGE_DATA && Object.keys(window.IMESSAGE_DATA).length > 0) {
+                    loadConversations();
+                }
+            }
+        }
+
+        // Wait for DOM to be ready, then check for Tauri
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(initApp, 50);
+            });
+        } else {
+            setTimeout(initApp, 50);
+        }
+    </script>
+
+    <script>
+        // Initialize IMESSAGE_DATA for compatibility
+        window.IMESSAGE_DATA = window.IMESSAGE_DATA || {};
     </script>
 
     <script>
@@ -899,12 +1965,14 @@
 
         // Check if content is an attachment
         function isAttachment(content) {
-            return content && content.startsWith('attachments/');
+            return content && (content.startsWith('attachments/') || content.startsWith('local-file:'));
         }
 
         // Get attachment type
         function getAttachmentType(path) {
-            const ext = path.split('.').pop().toLowerCase();
+            // Remove local-file: prefix if present
+            const cleanPath = path.startsWith('local-file:') ? path.substring(11) : path;
+            const ext = cleanPath.split('.').pop().toLowerCase();
             if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext)) {
                 return 'image';
             }
@@ -914,6 +1982,67 @@
             return 'file';
         }
 
+        // Convert local file path to displayable URL
+        function getFileUrl(path) {
+            // Remove local-file: prefix if present
+            const cleanPath = path.startsWith('local-file:') ? path.substring(11) : path;
+
+            // Use Tauri's convertFileSrc if available
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.convertFileSrc) {
+                return window.__TAURI__.core.convertFileSrc(cleanPath);
+            }
+            // Fallback: try asset protocol
+            if (window.__TAURI__) {
+                return 'asset://localhost/' + encodeURIComponent(cleanPath);
+            }
+            // Browser fallback
+            return 'file://' + cleanPath;
+        }
+
+        // Check if text looks like a UUID
+        function isUuidLike(text) {
+            if (!text) return false;
+            const t = text.trim();
+            // UUID format: 8-4-4-4-12 hex characters, possibly with newlines
+            const hexOnly = t.replace(/[-\s]/g, '');
+            if (hexOnly.length >= 32 && hexOnly.length <= 40 && /^[0-9A-Fa-f]+$/.test(hexOnly)) {
+                return true;
+            }
+            return false;
+        }
+
+        // Check if text looks like metadata/binary garbage
+        function isMetadataText(text) {
+            if (!text) return true;
+            const t = text.trim();
+            // Skip metadata patterns
+            return t.includes('streamtyped') ||
+                   t.includes('typedstream') ||
+                   t.includes('NS.rangeval') ||
+                   t.includes('NS.range') ||
+                   t.includes('NS.special') ||
+                   t.includes('NSMutable') ||
+                   t.includes('NSAttributed') ||
+                   t.includes('NSObject') ||
+                   t.includes('NSData') ||
+                   t.includes('NSKeyedArchiver') ||
+                   t.includes('NSDictionary') ||
+                   t.includes('NSArray') ||
+                   t.includes('NSNumber') ||
+                   t.includes('NSString') ||
+                   t.includes('NSValue') ||
+                   t.includes('__kIM') ||
+                   t.includes('$archiver') ||
+                   t.includes('$version') ||
+                   t.includes('$class') ||
+                   t.includes('com.apple.') ||
+                   t.startsWith('\u{FFFC}') ||
+                   // Skip UUIDs (attachment references)
+                   isUuidLike(t) ||
+                   // Skip if mostly non-printable characters
+                   (t.length > 10 && [...t].filter(c => c.charCodeAt(0) < 32 || c.charCodeAt(0) > 126).length > t.length * 0.3);
+        }
+
         // Render message content
         function renderMessageContent(content) {
             if (!content) return '';
@@ -921,34 +2050,58 @@
             // Check if content contains multiple lines (could be multiple attachments)
             const lines = content.split('\n').filter(line => line.trim());
 
-            // If multiple lines and all are attachments, render them separately
-            if (lines.length > 1 && lines.every(line => isAttachment(line.trim()))) {
-                return lines.map(line => {
-                    const trimmedLine = line.trim();
+            // Check for local-file attachments and render them
+            const renderedLines = lines.map(line => {
+                const trimmedLine = line.trim();
+
+                if (trimmedLine.startsWith('local-file:')) {
                     const type = getAttachmentType(trimmedLine);
+                    const fileUrl = getFileUrl(trimmedLine);
+                    const fileName = trimmedLine.split('/').pop();
+
                     if (type === 'image') {
-                        return `<img src="${escapeHtml(trimmedLine)}" class="attachment-image" onclick="showImageModal('${escapeHtml(trimmedLine)}')" alt="Image attachment">`;
+                        return `<div class="attachment-container"><img src="${escapeHtml(fileUrl)}" class="attachment-image" onclick="showImageModal('${escapeHtml(fileUrl)}')" alt="Image" onload="this.parentElement.classList.add('loaded')" onerror="this.parentElement.innerHTML='[Image: ${escapeHtml(fileName)}]'"></div>`;
                     }
                     if (type === 'video') {
-                        return `<video src="${escapeHtml(trimmedLine)}" class="attachment-video" controls></video>`;
+                        return `<div class="attachment-container"><video src="${escapeHtml(fileUrl)}" class="attachment-video" controls onloadedmetadata="this.parentElement.classList.add('loaded')" onerror="this.parentElement.innerHTML='[Video: ${escapeHtml(fileName)}]'"></video></div>`;
+                    }
+                    return `[Attachment: ${escapeHtml(fileName)}]`;
+                }
+
+                if (trimmedLine.startsWith('attachments/')) {
+                    const type = getAttachmentType(trimmedLine);
+                    if (type === 'image') {
+                        return `<div class="attachment-container"><img src="${escapeHtml(trimmedLine)}" class="attachment-image" onclick="showImageModal('${escapeHtml(trimmedLine)}')" alt="Image attachment" onload="this.parentElement.classList.add('loaded')"></div>`;
+                    }
+                    if (type === 'video') {
+                        return `<div class="attachment-container"><video src="${escapeHtml(trimmedLine)}" class="attachment-video" controls onloadedmetadata="this.parentElement.classList.add('loaded')"></video></div>`;
                     }
                     return `<a href="${escapeHtml(trimmedLine)}" target="_blank">Attachment: ${escapeHtml(trimmedLine.split('/').pop())}</a>`;
-                }).join('');
+                }
+
+                // Check if this line is metadata that should be hidden
+                if (isMetadataText(trimmedLine)) {
+                    return 'skip';
+                }
+
+                return null; // Not an attachment, normal text
+            });
+
+            // If all lines were attachments, return the rendered attachments
+            if (renderedLines.every(r => r !== null && r !== 'skip')) {
+                return renderedLines.filter(r => r !== 'skip').join('');
             }
 
-            // Single attachment
-            if (isAttachment(content)) {
-                const type = getAttachmentType(content);
-                if (type === 'image') {
-                    return `<img src="${escapeHtml(content)}" class="attachment-image" onclick="showImageModal('${escapeHtml(content)}')" alt="Image attachment">`;
+            // Mixed content - render attachments and linkify text, skip metadata
+            return lines.map((line, i) => {
+                if (renderedLines[i] === 'skip') {
+                    return '';
                 }
-                if (type === 'video') {
-                    return `<video src="${escapeHtml(content)}" class="attachment-video" controls></video>`;
+                if (renderedLines[i] !== null) {
+                    return renderedLines[i];
                 }
-                return `<a href="${escapeHtml(content)}" target="_blank">Attachment: ${escapeHtml(content.split('/').pop())}</a>`;
-            }
-
-            return linkify(content);
+                return linkify(line);
+            }).filter(s => s).join('<br>');
         }
 
         // Select and display a conversation
@@ -999,7 +2152,9 @@
             if (sender.startsWith('Edited ') ||
                 sender.startsWith('Tapbacks:') ||
                 sender.includes('This message responded to') ||
-                sender.startsWith('attachments/')) {
+                sender.startsWith('attachments/') ||
+                sender === 'Unknown' ||
+                sender === 'System') {
                 return false;
             }
 
@@ -1207,7 +2362,11 @@
                 'im', 'dont', 'cant', 'wont', 'shouldnt', 'wouldnt', 'couldnt', 'isnt', 'arent',
                 'wasnt', 'werent', 'hasnt', 'havent', 'hadnt', 'doesnt', 'didnt', 'thats',
                 'ill', 'id', 'ive', 'youre', 'youve', 'youll', 'youd', 'hes', 'shes',
-                'its', 'were', 'theyre', 'theyve', 'theyll', 'theyd'
+                'its', 'were', 'theyre', 'theyve', 'theyll', 'theyd',
+                // Attachment/media related words to filter
+                'image', 'attachment', 'video', 'audio', 'content', 'downloadmov',
+                'photo', 'mov', 'mp4', 'jpg', 'jpeg', 'png', 'gif', 'heic', 'pdf',
+                'file', 'download', 'media', 'attachments', 'no'
             ]);
 
             let prevMsgTime = null;
@@ -1602,43 +2761,274 @@
             URL.revokeObjectURL(url);
         }
 
-        // Render messages
-        function renderMessages(messages) {
-            const container = document.getElementById('messagesContainer');
-            let html = '';
-            let currentDate = '';
+        // Virtual Scrolling Implementation
+        const virtualScroller = {
+            messages: [],
+            container: null,
+            viewport: null,
+            spacerTop: null,
+            spacerBottom: null,
+            content: null,
+            itemHeight: 70, // Estimated average message height
+            bufferSize: 20, // Number of items to render above/below viewport
+            visibleStart: 0,
+            visibleEnd: 0,
+            scrollTimeout: null,
+            isGroup: false,
 
-            messages.forEach((msg, index) => {
-                // Add date divider if needed
-                const msgDate = formatDate(msg.timestamp);
-                if (msgDate !== currentDate) {
-                    currentDate = msgDate;
-                    html += `<div class="date-divider"><span>${msgDate}</span></div>`;
+            init(container, messages, isGroup) {
+                this.container = container;
+                this.messages = messages;
+                this.isGroup = isGroup;
+
+                // Create virtual scroll structure
+                this.container.innerHTML = `
+                    <div class="virtual-spacer-top"></div>
+                    <div class="virtual-content"></div>
+                    <div class="virtual-spacer-bottom"></div>
+                `;
+
+                this.spacerTop = this.container.querySelector('.virtual-spacer-top');
+                this.content = this.container.querySelector('.virtual-content');
+                this.spacerBottom = this.container.querySelector('.virtual-spacer-bottom');
+
+                // Set up scroll listener with throttling
+                this.container.addEventListener('scroll', () => {
+                    if (this.scrollTimeout) return;
+                    this.scrollTimeout = requestAnimationFrame(() => {
+                        this.onScroll();
+                        this.scrollTimeout = null;
+                    });
+                });
+
+                // Calculate what scroll position would be at bottom and render for that
+                const totalHeight = this.messages.length * this.itemHeight;
+                const viewportHeight = this.container.clientHeight || 600; // fallback height
+                const bottomScrollTop = Math.max(0, totalHeight - viewportHeight);
+
+                // Render for bottom position first
+                this.renderForScrollPosition(bottomScrollTop, viewportHeight);
+
+                // Scroll to bottom after DOM updates
+                const scrollToEnd = () => {
+                    this.container.scrollTop = this.container.scrollHeight;
+                };
+                requestAnimationFrame(scrollToEnd);
+                setTimeout(scrollToEnd, 50);
+                setTimeout(scrollToEnd, 150);
+            },
+
+            getVisibleRange() {
+                const scrollTop = this.container.scrollTop;
+                const viewportHeight = this.container.clientHeight;
+                const totalHeight = this.messages.length * this.itemHeight;
+
+                let start = Math.floor(scrollTop / this.itemHeight) - this.bufferSize;
+                let end = Math.ceil((scrollTop + viewportHeight) / this.itemHeight) + this.bufferSize;
+
+                start = Math.max(0, start);
+                end = Math.min(this.messages.length, end);
+
+                return { start, end };
+            },
+
+            onScroll() {
+                const { start, end } = this.getVisibleRange();
+
+                // Only re-render if range changed significantly
+                if (Math.abs(start - this.visibleStart) > 5 || Math.abs(end - this.visibleEnd) > 5) {
+                    this.visibleStart = start;
+                    this.visibleEnd = end;
+                    this.render();
+                }
+            },
+
+            render() {
+                const { start, end } = this.getVisibleRange();
+                this.visibleStart = start;
+                this.visibleEnd = end;
+
+                // Update spacers
+                const topSpace = start * this.itemHeight;
+                const bottomSpace = (this.messages.length - end) * this.itemHeight;
+
+                this.spacerTop.style.height = `${topSpace}px`;
+                this.spacerBottom.style.height = `${Math.max(0, bottomSpace)}px`;
+
+                // Render visible messages
+                let html = '';
+                let currentDate = '';
+
+                // Look back for the current date context
+                for (let i = Math.max(0, start - 1); i >= 0; i--) {
+                    const prevDate = formatDate(this.messages[i].timestamp);
+                    if (prevDate) {
+                        currentDate = prevDate;
+                        break;
+                    }
                 }
 
-                const isSent = msg.sender === 'Me';
-                const showSender = !isSent && conversations[currentConversation]?.isGroup;
+                for (let i = start; i < end; i++) {
+                    const msg = this.messages[i];
+                    if (!msg) continue;
 
-                html += `
-                    <div class="message ${isSent ? 'sent' : 'received'}">
-                        ${showSender ? `<div class="message-sender">${escapeHtml(msg.sender)}</div>` : ''}
-                        <div class="message-bubble">
-                            ${renderMessageContent(msg.content)}
-                        </div>
-                        <div class="message-time">${formatTime(msg.timestamp)}</div>
-                        ${msg.readInfo ? `<div class="read-receipt">${escapeHtml(msg.readInfo)}</div>` : ''}
-                        ${msg.editInfo ? `<div class="edited-indicator">${escapeHtml(msg.editInfo)}</div>` : ''}
-                        ${msg.reactions.length > 0 ? `
-                            <div class="message-reactions">
-                                ${msg.reactions.map(r => `<span class="reaction">${escapeHtml(r)}</span>`).join('')}
+                    // Add date divider if needed
+                    const msgDate = formatDate(msg.timestamp);
+                    if (msgDate !== currentDate) {
+                        currentDate = msgDate;
+                        html += `<div class="date-divider"><span>${msgDate}</span></div>`;
+                    }
+
+                    const isSent = msg.sender === 'Me';
+                    const showSender = !isSent && this.isGroup;
+
+                    html += `
+                        <div class="message ${isSent ? 'sent' : 'received'}" data-index="${i}">
+                            ${showSender ? `<div class="message-sender">${escapeHtml(msg.sender)}</div>` : ''}
+                            <div class="message-bubble">
+                                ${renderMessageContent(msg.content)}
                             </div>
-                        ` : ''}
-                    </div>
-                `;
-            });
+                            <div class="message-time">${formatTime(msg.timestamp)}</div>
+                            ${msg.readInfo ? `<div class="read-receipt">${escapeHtml(msg.readInfo)}</div>` : ''}
+                            ${msg.editInfo ? `<div class="edited-indicator">${escapeHtml(msg.editInfo)}</div>` : ''}
+                            ${msg.reactions && msg.reactions.length > 0 ? `
+                                <div class="message-reactions">
+                                    ${msg.reactions.map(r => `<span class="reaction">${escapeHtml(r)}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
 
-            container.innerHTML = html;
-            container.scrollTop = container.scrollHeight;
+                this.content.innerHTML = html;
+            },
+
+            renderForScrollPosition(scrollTop, viewportHeight) {
+                // Calculate visible range for a specific scroll position
+                let start = Math.floor(scrollTop / this.itemHeight) - this.bufferSize;
+                let end = Math.ceil((scrollTop + viewportHeight) / this.itemHeight) + this.bufferSize;
+
+                start = Math.max(0, start);
+                end = Math.min(this.messages.length, end);
+
+                this.visibleStart = start;
+                this.visibleEnd = end;
+
+                // Update spacers
+                const topSpace = start * this.itemHeight;
+                const bottomSpace = (this.messages.length - end) * this.itemHeight;
+
+                this.spacerTop.style.height = `${topSpace}px`;
+                this.spacerBottom.style.height = `${Math.max(0, bottomSpace)}px`;
+
+                // Render visible messages
+                let html = '';
+                let currentDate = '';
+
+                // Look back for the current date context
+                for (let i = Math.max(0, start - 1); i >= 0; i--) {
+                    const prevDate = formatDate(this.messages[i].timestamp);
+                    if (prevDate) {
+                        currentDate = prevDate;
+                        break;
+                    }
+                }
+
+                for (let i = start; i < end; i++) {
+                    const msg = this.messages[i];
+                    if (!msg) continue;
+
+                    // Add date divider if needed
+                    const msgDate = formatDate(msg.timestamp);
+                    if (msgDate !== currentDate) {
+                        currentDate = msgDate;
+                        html += `<div class="date-divider"><span>${msgDate}</span></div>`;
+                    }
+
+                    const isSent = msg.sender === 'Me';
+                    const showSender = !isSent && this.isGroup;
+
+                    html += `
+                        <div class="message ${isSent ? 'sent' : 'received'}" data-index="${i}">
+                            ${showSender ? `<div class="message-sender">${escapeHtml(msg.sender)}</div>` : ''}
+                            <div class="message-bubble">
+                                ${renderMessageContent(msg.content)}
+                            </div>
+                            <div class="message-time">${formatTime(msg.timestamp)}</div>
+                            ${msg.readInfo ? `<div class="read-receipt">${escapeHtml(msg.readInfo)}</div>` : ''}
+                            ${msg.editInfo ? `<div class="edited-indicator">${escapeHtml(msg.editInfo)}</div>` : ''}
+                            ${msg.reactions && msg.reactions.length > 0 ? `
+                                <div class="message-reactions">
+                                    ${msg.reactions.map(r => `<span class="reaction">${escapeHtml(r)}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+                this.content.innerHTML = html;
+            },
+
+            scrollToBottom() {
+                this.container.scrollTop = this.container.scrollHeight;
+            },
+
+            destroy() {
+                this.messages = [];
+                this.container = null;
+            }
+        };
+
+        // Render messages using virtual scrolling
+        function renderMessages(messages) {
+            const container = document.getElementById('messagesContainer');
+            const isGroup = conversations[currentConversation]?.isGroup || false;
+
+            // Use virtual scrolling for large message lists
+            if (messages.length > 100) {
+                virtualScroller.init(container, messages, isGroup);
+            } else {
+                // For small lists, use regular rendering (faster initial load)
+                let html = '';
+                let currentDate = '';
+
+                messages.forEach((msg, index) => {
+                    const msgDate = formatDate(msg.timestamp);
+                    if (msgDate !== currentDate) {
+                        currentDate = msgDate;
+                        html += `<div class="date-divider"><span>${msgDate}</span></div>`;
+                    }
+
+                    const isSent = msg.sender === 'Me';
+                    const showSender = !isSent && isGroup;
+
+                    html += `
+                        <div class="message ${isSent ? 'sent' : 'received'}">
+                            ${showSender ? `<div class="message-sender">${escapeHtml(msg.sender)}</div>` : ''}
+                            <div class="message-bubble">
+                                ${renderMessageContent(msg.content)}
+                            </div>
+                            <div class="message-time">${formatTime(msg.timestamp)}</div>
+                            ${msg.readInfo ? `<div class="read-receipt">${escapeHtml(msg.readInfo)}</div>` : ''}
+                            ${msg.editInfo ? `<div class="edited-indicator">${escapeHtml(msg.editInfo)}</div>` : ''}
+                            ${msg.reactions && msg.reactions.length > 0 ? `
+                                <div class="message-reactions">
+                                    ${msg.reactions.map(r => `<span class="reaction">${escapeHtml(r)}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+                // Scroll to bottom after DOM updates - use multiple attempts for images loading
+                const scrollToEnd = () => {
+                    container.scrollTop = container.scrollHeight;
+                };
+                requestAnimationFrame(scrollToEnd);
+                setTimeout(scrollToEnd, 100);
+                setTimeout(scrollToEnd, 300);
+            }
         }
 
         // Show image in modal
@@ -1689,13 +3079,18 @@
                 `${conversations.length} conversations, ${totalMessages.toLocaleString()} messages`;
         }
 
-        // Initialize
-        if (window.IMESSAGE_DATA) {
-            loadConversations();
-        } else {
-            document.getElementById('conversationList').innerHTML =
-                '<div class="loading">Error: No message data found. Please run the Python script to generate the viewer.</div>';
-        }
+        // Initialize - only auto-load if not using Tauri (Tauri uses onboarding flow)
+        // The onboarding module handles initialization for Tauri
+        // Delay check to give Tauri plenty of time to inject its API (must be longer than polling time)
+        setTimeout(() => {
+            console.log('3-second timeout check: isTauri=', window.appState.isTauri, '__TAURI__=', !!window.__TAURI__);
+            // Only proceed if Tauri was never detected AND we're not in onboarding
+            if (!window.appState.isTauri && !window.__TAURI__ && window.IMESSAGE_DATA && Object.keys(window.IMESSAGE_DATA).length > 0) {
+                console.log('3-second timeout: Hiding onboarding overlay');
+                document.getElementById('onboardingOverlay').classList.add('hidden');
+                loadConversations();
+            }
+        }, 3000);
     </script>
 
 </body>

@@ -23,3 +23,19 @@ ENV/
 
 # Generated viewer (contains personal data)
 viewer.html
+
+# Tauri / Rust
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# Node
+node_modules/
+dist/
+.npm
+*.log
+
+# Build outputs
+*.dmg
+*.app
+*.deb
+*.AppImage

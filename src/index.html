@@ -50,10 +50,35 @@
             border-bottom: 1px solid var(--border-color);
         }
 
+        .sidebar-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
         .sidebar-header h1 {
             font-size: 24px;
             font-weight: 700;
-            margin-bottom: 12px;
+            margin: 0;
+        }
+
+        .reload-btn {
+            background: var(--bg-tertiary);
+            border: none;
+            border-radius: 8px;
+            padding: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .reload-btn:hover {
+            background: var(--blue-bubble);
+            color: white;
         }
 
         .search-box {
@@ -179,6 +204,17 @@
             overflow-y: auto;
             overflow-x: hidden;
             padding: 16px 20px;
+        }
+
+        /* Virtual scrolling */
+        .virtual-spacer-top,
+        .virtual-spacer-bottom {
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .virtual-content {
+            min-height: 1px;
         }
 
         .date-divider {
@@ -314,6 +350,22 @@
             justify-content: center;
             color: var(--text-secondary);
             font-size: 16px;
+        }
+
+        .attachment-container {
+            min-height: 200px;
+            max-width: 300px;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .attachment-container.loaded {
+            min-height: unset;
+            background: transparent;
         }
 
         .attachment-image {
@@ -570,7 +622,7 @@
         .section-title:hover {background: var(--bg-primary);}
         .arrow {font-size: 10px; color: var(--text-secondary);}
         .section-body {padding: 0 12px 12px 12px;}
-        .sub-title {font-size: 11px; font-weight: 600; color: var(--text-secondary); margin: 8px 0 4px 0; text-transform: uppercase;}
+        .sub-title {font-size: 11px; font-weight: 600; color: var(--text-secondary); margin: 8px 0 8px 0; text-transform: uppercase;}
 
         .word-row {display: flex; align-items: center; gap: 6px; padding: 3px 0; font-size: 12px;}
         .w-label {min-width: 70px; font-weight: 500;}
@@ -590,10 +642,10 @@
         .heat-cell {height: 20px; border-radius: 2px; cursor: pointer;}
         .heat-labels {display: flex; justify-content: space-between; font-size: 10px; color: var(--text-secondary);}
 
-        .day-chart {display: flex; gap: 8px; margin-top: 8px; height: 100px; align-items: flex-end;}
+        .day-chart {display: flex; gap: 8px; margin-top: 24px; margin-bottom: 24px; height: 100px; align-items: flex-end; padding-bottom: 20px;}
         .day-bar {flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; position: relative;}
         .day-fill {width: 100%; background: var(--blue-bubble); border-radius: 4px 4px 0 0; margin-bottom: 4px;}
-        .day-label {font-size: 10px; color: var(--text-secondary);}
+        .day-label {font-size: 10px; color: var(--text-secondary); position: absolute; bottom: -18px;}
         .day-val {font-size: 11px; color: var(--text-primary); font-weight: 600; position: absolute; top: -18px;}
 
         .time-stats {font-size: 11px; color: var(--text-secondary); margin-top: 12px; line-height: 1.5;}
@@ -636,6 +688,8 @@
             padding: 40px;
             max-width: 500px;
             width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
             text-align: center;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
         }
@@ -809,6 +863,7 @@
             background: var(--bg-tertiary);
             border-radius: 8px;
             padding: 8px;
+            margin-top: 8px;
         }
 
         .contact-item {
@@ -1035,7 +1090,15 @@
 
     <div class="sidebar">
         <div class="sidebar-header">
-            <h1>Messages</h1>
+            <div class="sidebar-title-row">
+                <h1>Messages</h1>
+                <button class="reload-btn" onclick="showImportScreen()" title="Change filters or refresh messages">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M1 4v6h6M23 20v-6h-6"/>
+                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                    </svg>
+                </button>
+            </div>
             <input type="text" class="search-box" placeholder="Search conversations..." id="searchBox">
         </div>
         <div class="conversation-list" id="conversationList">
@@ -1228,6 +1291,17 @@
         window.skipContactsPermission = async function() {
             showStep('loadingStep');
             document.getElementById('loadingStatus').textContent = 'Loading without contact names...';
+            await loadDatabaseStats();
+        };
+
+        // Show import screen (go back to selection)
+        window.showImportScreen = async function() {
+            // Clear selected contacts
+            window.appState.selectedContacts = [];
+            // Show the onboarding overlay and selection step
+            document.getElementById('onboardingOverlay').classList.remove('hidden');
+            showStep('loadingStep');
+            document.getElementById('loadingStatus').textContent = 'Refreshing data...';
             await loadDatabaseStats();
         };
 
@@ -1559,20 +1633,42 @@
 
                     // Add attachment info if present
                     if (msg.attachments && msg.attachments.length > 0) {
-                        const attachmentText = msg.attachments.map(a => {
-                            const name = a.transfer_name || a.filename || 'Attachment';
-                            const type = a.mime_type || '';
-                            if (type.startsWith('image/')) {
-                                return `[Image: ${name}]`;
-                            } else if (type.startsWith('video/')) {
-                                return `[Video: ${name}]`;
-                            } else if (type.startsWith('audio/')) {
-                                return `[Audio: ${name}]`;
-                            } else {
-                                return `[Attachment: ${name}]`;
+                        const attachmentParts = msg.attachments
+                            .filter(a => {
+                                const name = a.transfer_name || (a.filename ? a.filename.split('/').pop() : '');
+                                // Skip plugin payload attachments (link preview metadata)
+                                if (name.includes('pluginPayloadAttachment')) return false;
+                                // Skip group photo changes - they're events, not content
+                                if (name === 'GroupPhotoImage') return false;
+                                return true;
+                            })
+                            .map(a => {
+                                const name = a.transfer_name || (a.filename ? a.filename.split('/').pop() : 'Attachment');
+                                const type = a.mime_type || '';
+                                const path = a.filename || '';
+
+                                // Use local-file: prefix for paths the viewer can render
+                                if (path && (type.startsWith('image/') || type.startsWith('video/'))) {
+                                    return `local-file:${path}`;
+                                } else if (type.startsWith('image/')) {
+                                    return `[Image: ${name}]`;
+                                } else if (type.startsWith('video/')) {
+                                    return `[Video: ${name}]`;
+                                } else if (type.startsWith('audio/')) {
+                                    return `[Audio: ${name}]`;
+                                } else {
+                                    return `[Attachment: ${name}]`;
+                                }
+                            });
+
+                        // Only add attachment text if there are real attachments
+                        if (attachmentParts.length > 0) {
+                            const attachmentText = attachmentParts.join('\n');
+                            // Don't duplicate if text already contains the attachment reference
+                            if (!text.includes('local-file:')) {
+                                text = text ? `${text}\n${attachmentText}` : attachmentText;
                             }
-                        }).join('\n');
-                        text = text ? `${text}\n${attachmentText}` : attachmentText;
+                        }
                     }
 
                     if (!text) {
@@ -1869,12 +1965,14 @@
 
         // Check if content is an attachment
         function isAttachment(content) {
-            return content && content.startsWith('attachments/');
+            return content && (content.startsWith('attachments/') || content.startsWith('local-file:'));
         }
 
         // Get attachment type
         function getAttachmentType(path) {
-            const ext = path.split('.').pop().toLowerCase();
+            // Remove local-file: prefix if present
+            const cleanPath = path.startsWith('local-file:') ? path.substring(11) : path;
+            const ext = cleanPath.split('.').pop().toLowerCase();
             if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic'].includes(ext)) {
                 return 'image';
             }
@@ -1884,6 +1982,67 @@
             return 'file';
         }
 
+        // Convert local file path to displayable URL
+        function getFileUrl(path) {
+            // Remove local-file: prefix if present
+            const cleanPath = path.startsWith('local-file:') ? path.substring(11) : path;
+
+            // Use Tauri's convertFileSrc if available
+            if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.convertFileSrc) {
+                return window.__TAURI__.core.convertFileSrc(cleanPath);
+            }
+            // Fallback: try asset protocol
+            if (window.__TAURI__) {
+                return 'asset://localhost/' + encodeURIComponent(cleanPath);
+            }
+            // Browser fallback
+            return 'file://' + cleanPath;
+        }
+
+        // Check if text looks like a UUID
+        function isUuidLike(text) {
+            if (!text) return false;
+            const t = text.trim();
+            // UUID format: 8-4-4-4-12 hex characters, possibly with newlines
+            const hexOnly = t.replace(/[-\s]/g, '');
+            if (hexOnly.length >= 32 && hexOnly.length <= 40 && /^[0-9A-Fa-f]+$/.test(hexOnly)) {
+                return true;
+            }
+            return false;
+        }
+
+        // Check if text looks like metadata/binary garbage
+        function isMetadataText(text) {
+            if (!text) return true;
+            const t = text.trim();
+            // Skip metadata patterns
+            return t.includes('streamtyped') ||
+                   t.includes('typedstream') ||
+                   t.includes('NS.rangeval') ||
+                   t.includes('NS.range') ||
+                   t.includes('NS.special') ||
+                   t.includes('NSMutable') ||
+                   t.includes('NSAttributed') ||
+                   t.includes('NSObject') ||
+                   t.includes('NSData') ||
+                   t.includes('NSKeyedArchiver') ||
+                   t.includes('NSDictionary') ||
+                   t.includes('NSArray') ||
+                   t.includes('NSNumber') ||
+                   t.includes('NSString') ||
+                   t.includes('NSValue') ||
+                   t.includes('__kIM') ||
+                   t.includes('$archiver') ||
+                   t.includes('$version') ||
+                   t.includes('$class') ||
+                   t.includes('com.apple.') ||
+                   t.startsWith('\u{FFFC}') ||
+                   // Skip UUIDs (attachment references)
+                   isUuidLike(t) ||
+                   // Skip if mostly non-printable characters
+                   (t.length > 10 && [...t].filter(c => c.charCodeAt(0) < 32 || c.charCodeAt(0) > 126).length > t.length * 0.3);
+        }
+
         // Render message content
         function renderMessageContent(content) {
             if (!content) return '';
@@ -1891,34 +2050,58 @@
             // Check if content contains multiple lines (could be multiple attachments)
             const lines = content.split('\n').filter(line => line.trim());
 
-            // If multiple lines and all are attachments, render them separately
-            if (lines.length > 1 && lines.every(line => isAttachment(line.trim()))) {
-                return lines.map(line => {
-                    const trimmedLine = line.trim();
+            // Check for local-file attachments and render them
+            const renderedLines = lines.map(line => {
+                const trimmedLine = line.trim();
+
+                if (trimmedLine.startsWith('local-file:')) {
                     const type = getAttachmentType(trimmedLine);
+                    const fileUrl = getFileUrl(trimmedLine);
+                    const fileName = trimmedLine.split('/').pop();
+
                     if (type === 'image') {
-                        return `<img src="${escapeHtml(trimmedLine)}" class="attachment-image" onclick="showImageModal('${escapeHtml(trimmedLine)}')" alt="Image attachment">`;
+                        return `<div class="attachment-container"><img src="${escapeHtml(fileUrl)}" class="attachment-image" onclick="showImageModal('${escapeHtml(fileUrl)}')" alt="Image" onload="this.parentElement.classList.add('loaded')" onerror="this.parentElement.innerHTML='[Image: ${escapeHtml(fileName)}]'"></div>`;
                     }
                     if (type === 'video') {
-                        return `<video src="${escapeHtml(trimmedLine)}" class="attachment-video" controls></video>`;
+                        return `<div class="attachment-container"><video src="${escapeHtml(fileUrl)}" class="attachment-video" controls onloadedmetadata="this.parentElement.classList.add('loaded')" onerror="this.parentElement.innerHTML='[Video: ${escapeHtml(fileName)}]'"></video></div>`;
+                    }
+                    return `[Attachment: ${escapeHtml(fileName)}]`;
+                }
+
+                if (trimmedLine.startsWith('attachments/')) {
+                    const type = getAttachmentType(trimmedLine);
+                    if (type === 'image') {
+                        return `<div class="attachment-container"><img src="${escapeHtml(trimmedLine)}" class="attachment-image" onclick="showImageModal('${escapeHtml(trimmedLine)}')" alt="Image attachment" onload="this.parentElement.classList.add('loaded')"></div>`;
+                    }
+                    if (type === 'video') {
+                        return `<div class="attachment-container"><video src="${escapeHtml(trimmedLine)}" class="attachment-video" controls onloadedmetadata="this.parentElement.classList.add('loaded')"></video></div>`;
                     }
                     return `<a href="${escapeHtml(trimmedLine)}" target="_blank">Attachment: ${escapeHtml(trimmedLine.split('/').pop())}</a>`;
-                }).join('');
+                }
+
+                // Check if this line is metadata that should be hidden
+                if (isMetadataText(trimmedLine)) {
+                    return 'skip';
+                }
+
+                return null; // Not an attachment, normal text
+            });
+
+            // If all lines were attachments, return the rendered attachments
+            if (renderedLines.every(r => r !== null && r !== 'skip')) {
+                return renderedLines.filter(r => r !== 'skip').join('');
             }
 
-            // Single attachment
-            if (isAttachment(content)) {
-                const type = getAttachmentType(content);
-                if (type === 'image') {
-                    return `<img src="${escapeHtml(content)}" class="attachment-image" onclick="showImageModal('${escapeHtml(content)}')" alt="Image attachment">`;
+            // Mixed content - render attachments and linkify text, skip metadata
+            return lines.map((line, i) => {
+                if (renderedLines[i] === 'skip') {
+                    return '';
                 }
-                if (type === 'video') {
-                    return `<video src="${escapeHtml(content)}" class="attachment-video" controls></video>`;
+                if (renderedLines[i] !== null) {
+                    return renderedLines[i];
                 }
-                return `<a href="${escapeHtml(content)}" target="_blank">Attachment: ${escapeHtml(content.split('/').pop())}</a>`;
-            }
-
-            return linkify(content);
+                return linkify(line);
+            }).filter(s => s).join('<br>');
         }
 
         // Select and display a conversation
@@ -2179,7 +2362,11 @@
                 'im', 'dont', 'cant', 'wont', 'shouldnt', 'wouldnt', 'couldnt', 'isnt', 'arent',
                 'wasnt', 'werent', 'hasnt', 'havent', 'hadnt', 'doesnt', 'didnt', 'thats',
                 'ill', 'id', 'ive', 'youre', 'youve', 'youll', 'youd', 'hes', 'shes',
-                'its', 'were', 'theyre', 'theyve', 'theyll', 'theyd'
+                'its', 'were', 'theyre', 'theyve', 'theyll', 'theyd',
+                // Attachment/media related words to filter
+                'image', 'attachment', 'video', 'audio', 'content', 'downloadmov',
+                'photo', 'mov', 'mp4', 'jpg', 'jpeg', 'png', 'gif', 'heic', 'pdf',
+                'file', 'download', 'media', 'attachments', 'no'
             ]);
 
             let prevMsgTime = null;
@@ -2574,43 +2761,274 @@
             URL.revokeObjectURL(url);
         }
 
-        // Render messages
-        function renderMessages(messages) {
-            const container = document.getElementById('messagesContainer');
-            let html = '';
-            let currentDate = '';
+        // Virtual Scrolling Implementation
+        const virtualScroller = {
+            messages: [],
+            container: null,
+            viewport: null,
+            spacerTop: null,
+            spacerBottom: null,
+            content: null,
+            itemHeight: 70, // Estimated average message height
+            bufferSize: 20, // Number of items to render above/below viewport
+            visibleStart: 0,
+            visibleEnd: 0,
+            scrollTimeout: null,
+            isGroup: false,
 
-            messages.forEach((msg, index) => {
-                // Add date divider if needed
-                const msgDate = formatDate(msg.timestamp);
-                if (msgDate !== currentDate) {
-                    currentDate = msgDate;
-                    html += `<div class="date-divider"><span>${msgDate}</span></div>`;
+            init(container, messages, isGroup) {
+                this.container = container;
+                this.messages = messages;
+                this.isGroup = isGroup;
+
+                // Create virtual scroll structure
+                this.container.innerHTML = `
+                    <div class="virtual-spacer-top"></div>
+                    <div class="virtual-content"></div>
+                    <div class="virtual-spacer-bottom"></div>
+                `;
+
+                this.spacerTop = this.container.querySelector('.virtual-spacer-top');
+                this.content = this.container.querySelector('.virtual-content');
+                this.spacerBottom = this.container.querySelector('.virtual-spacer-bottom');
+
+                // Set up scroll listener with throttling
+                this.container.addEventListener('scroll', () => {
+                    if (this.scrollTimeout) return;
+                    this.scrollTimeout = requestAnimationFrame(() => {
+                        this.onScroll();
+                        this.scrollTimeout = null;
+                    });
+                });
+
+                // Calculate what scroll position would be at bottom and render for that
+                const totalHeight = this.messages.length * this.itemHeight;
+                const viewportHeight = this.container.clientHeight || 600; // fallback height
+                const bottomScrollTop = Math.max(0, totalHeight - viewportHeight);
+
+                // Render for bottom position first
+                this.renderForScrollPosition(bottomScrollTop, viewportHeight);
+
+                // Scroll to bottom after DOM updates
+                const scrollToEnd = () => {
+                    this.container.scrollTop = this.container.scrollHeight;
+                };
+                requestAnimationFrame(scrollToEnd);
+                setTimeout(scrollToEnd, 50);
+                setTimeout(scrollToEnd, 150);
+            },
+
+            getVisibleRange() {
+                const scrollTop = this.container.scrollTop;
+                const viewportHeight = this.container.clientHeight;
+                const totalHeight = this.messages.length * this.itemHeight;
+
+                let start = Math.floor(scrollTop / this.itemHeight) - this.bufferSize;
+                let end = Math.ceil((scrollTop + viewportHeight) / this.itemHeight) + this.bufferSize;
+
+                start = Math.max(0, start);
+                end = Math.min(this.messages.length, end);
+
+                return { start, end };
+            },
+
+            onScroll() {
+                const { start, end } = this.getVisibleRange();
+
+                // Only re-render if range changed significantly
+                if (Math.abs(start - this.visibleStart) > 5 || Math.abs(end - this.visibleEnd) > 5) {
+                    this.visibleStart = start;
+                    this.visibleEnd = end;
+                    this.render();
+                }
+            },
+
+            render() {
+                const { start, end } = this.getVisibleRange();
+                this.visibleStart = start;
+                this.visibleEnd = end;
+
+                // Update spacers
+                const topSpace = start * this.itemHeight;
+                const bottomSpace = (this.messages.length - end) * this.itemHeight;
+
+                this.spacerTop.style.height = `${topSpace}px`;
+                this.spacerBottom.style.height = `${Math.max(0, bottomSpace)}px`;
+
+                // Render visible messages
+                let html = '';
+                let currentDate = '';
+
+                // Look back for the current date context
+                for (let i = Math.max(0, start - 1); i >= 0; i--) {
+                    const prevDate = formatDate(this.messages[i].timestamp);
+                    if (prevDate) {
+                        currentDate = prevDate;
+                        break;
+                    }
                 }
 
-                const isSent = msg.sender === 'Me';
-                const showSender = !isSent && conversations[currentConversation]?.isGroup;
+                for (let i = start; i < end; i++) {
+                    const msg = this.messages[i];
+                    if (!msg) continue;
 
-                html += `
-                    <div class="message ${isSent ? 'sent' : 'received'}">
-                        ${showSender ? `<div class="message-sender">${escapeHtml(msg.sender)}</div>` : ''}
-                        <div class="message-bubble">
-                            ${renderMessageContent(msg.content)}
-                        </div>
-                        <div class="message-time">${formatTime(msg.timestamp)}</div>
-                        ${msg.readInfo ? `<div class="read-receipt">${escapeHtml(msg.readInfo)}</div>` : ''}
-                        ${msg.editInfo ? `<div class="edited-indicator">${escapeHtml(msg.editInfo)}</div>` : ''}
-                        ${msg.reactions.length > 0 ? `
-                            <div class="message-reactions">
-                                ${msg.reactions.map(r => `<span class="reaction">${escapeHtml(r)}</span>`).join('')}
+                    // Add date divider if needed
+                    const msgDate = formatDate(msg.timestamp);
+                    if (msgDate !== currentDate) {
+                        currentDate = msgDate;
+                        html += `<div class="date-divider"><span>${msgDate}</span></div>`;
+                    }
+
+                    const isSent = msg.sender === 'Me';
+                    const showSender = !isSent && this.isGroup;
+
+                    html += `
+                        <div class="message ${isSent ? 'sent' : 'received'}" data-index="${i}">
+                            ${showSender ? `<div class="message-sender">${escapeHtml(msg.sender)}</div>` : ''}
+                            <div class="message-bubble">
+                                ${renderMessageContent(msg.content)}
                             </div>
-                        ` : ''}
-                    </div>
-                `;
-            });
+                            <div class="message-time">${formatTime(msg.timestamp)}</div>
+                            ${msg.readInfo ? `<div class="read-receipt">${escapeHtml(msg.readInfo)}</div>` : ''}
+                            ${msg.editInfo ? `<div class="edited-indicator">${escapeHtml(msg.editInfo)}</div>` : ''}
+                            ${msg.reactions && msg.reactions.length > 0 ? `
+                                <div class="message-reactions">
+                                    ${msg.reactions.map(r => `<span class="reaction">${escapeHtml(r)}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
 
-            container.innerHTML = html;
-            container.scrollTop = container.scrollHeight;
+                this.content.innerHTML = html;
+            },
+
+            renderForScrollPosition(scrollTop, viewportHeight) {
+                // Calculate visible range for a specific scroll position
+                let start = Math.floor(scrollTop / this.itemHeight) - this.bufferSize;
+                let end = Math.ceil((scrollTop + viewportHeight) / this.itemHeight) + this.bufferSize;
+
+                start = Math.max(0, start);
+                end = Math.min(this.messages.length, end);
+
+                this.visibleStart = start;
+                this.visibleEnd = end;
+
+                // Update spacers
+                const topSpace = start * this.itemHeight;
+                const bottomSpace = (this.messages.length - end) * this.itemHeight;
+
+                this.spacerTop.style.height = `${topSpace}px`;
+                this.spacerBottom.style.height = `${Math.max(0, bottomSpace)}px`;
+
+                // Render visible messages
+                let html = '';
+                let currentDate = '';
+
+                // Look back for the current date context
+                for (let i = Math.max(0, start - 1); i >= 0; i--) {
+                    const prevDate = formatDate(this.messages[i].timestamp);
+                    if (prevDate) {
+                        currentDate = prevDate;
+                        break;
+                    }
+                }
+
+                for (let i = start; i < end; i++) {
+                    const msg = this.messages[i];
+                    if (!msg) continue;
+
+                    // Add date divider if needed
+                    const msgDate = formatDate(msg.timestamp);
+                    if (msgDate !== currentDate) {
+                        currentDate = msgDate;
+                        html += `<div class="date-divider"><span>${msgDate}</span></div>`;
+                    }
+
+                    const isSent = msg.sender === 'Me';
+                    const showSender = !isSent && this.isGroup;
+
+                    html += `
+                        <div class="message ${isSent ? 'sent' : 'received'}" data-index="${i}">
+                            ${showSender ? `<div class="message-sender">${escapeHtml(msg.sender)}</div>` : ''}
+                            <div class="message-bubble">
+                                ${renderMessageContent(msg.content)}
+                            </div>
+                            <div class="message-time">${formatTime(msg.timestamp)}</div>
+                            ${msg.readInfo ? `<div class="read-receipt">${escapeHtml(msg.readInfo)}</div>` : ''}
+                            ${msg.editInfo ? `<div class="edited-indicator">${escapeHtml(msg.editInfo)}</div>` : ''}
+                            ${msg.reactions && msg.reactions.length > 0 ? `
+                                <div class="message-reactions">
+                                    ${msg.reactions.map(r => `<span class="reaction">${escapeHtml(r)}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+
+                this.content.innerHTML = html;
+            },
+
+            scrollToBottom() {
+                this.container.scrollTop = this.container.scrollHeight;
+            },
+
+            destroy() {
+                this.messages = [];
+                this.container = null;
+            }
+        };
+
+        // Render messages using virtual scrolling
+        function renderMessages(messages) {
+            const container = document.getElementById('messagesContainer');
+            const isGroup = conversations[currentConversation]?.isGroup || false;
+
+            // Use virtual scrolling for large message lists
+            if (messages.length > 100) {
+                virtualScroller.init(container, messages, isGroup);
+            } else {
+                // For small lists, use regular rendering (faster initial load)
+                let html = '';
+                let currentDate = '';
+
+                messages.forEach((msg, index) => {
+                    const msgDate = formatDate(msg.timestamp);
+                    if (msgDate !== currentDate) {
+                        currentDate = msgDate;
+                        html += `<div class="date-divider"><span>${msgDate}</span></div>`;
+                    }
+
+                    const isSent = msg.sender === 'Me';
+                    const showSender = !isSent && isGroup;
+
+                    html += `
+                        <div class="message ${isSent ? 'sent' : 'received'}">
+                            ${showSender ? `<div class="message-sender">${escapeHtml(msg.sender)}</div>` : ''}
+                            <div class="message-bubble">
+                                ${renderMessageContent(msg.content)}
+                            </div>
+                            <div class="message-time">${formatTime(msg.timestamp)}</div>
+                            ${msg.readInfo ? `<div class="read-receipt">${escapeHtml(msg.readInfo)}</div>` : ''}
+                            ${msg.editInfo ? `<div class="edited-indicator">${escapeHtml(msg.editInfo)}</div>` : ''}
+                            ${msg.reactions && msg.reactions.length > 0 ? `
+                                <div class="message-reactions">
+                                    ${msg.reactions.map(r => `<span class="reaction">${escapeHtml(r)}</span>`).join('')}
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = html;
+                // Scroll to bottom after DOM updates - use multiple attempts for images loading
+                const scrollToEnd = () => {
+                    container.scrollTop = container.scrollHeight;
+                };
+                requestAnimationFrame(scrollToEnd);
+                setTimeout(scrollToEnd, 100);
+                setTimeout(scrollToEnd, 300);
+            }
         }
 
         // Show image in modal

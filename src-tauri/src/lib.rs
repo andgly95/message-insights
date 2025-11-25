@@ -63,6 +63,27 @@ fn normalize_phone(phone: &str) -> String {
         .collect()
 }
 
+/// Check if text looks like a UUID (attachment reference)
+fn is_uuid_like(text: &str) -> bool {
+    let trimmed = text.trim();
+    // UUID format: 8-4-4-4-12 hex characters with dashes
+    // Also match without dashes or with newlines
+    let clean: String = trimmed.chars()
+        .filter(|c| c.is_ascii_hexdigit())
+        .collect();
+
+    // A UUID has exactly 32 hex characters
+    // Allow some variance for partial UUIDs or UUIDs with extra chars
+    if clean.len() >= 32 && clean.len() <= 40 {
+        // Check if most of the original string was hex + dashes/whitespace
+        let valid_chars = trimmed.chars()
+            .filter(|c| c.is_ascii_hexdigit() || *c == '-' || c.is_whitespace())
+            .count();
+        return valid_chars as f32 / trimmed.len() as f32 > 0.9;
+    }
+    false
+}
+
 /// Read contacts from a single AddressBook database
 fn read_contacts_from_db(db_path: &PathBuf, names: &mut HashMap<String, String>) {
     let conn = match Connection::open_with_flags(db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY) {
@@ -159,6 +180,66 @@ fn get_contact_names() -> HashMap<String, String> {
     names
 }
 
+/// Extract text from attributedBody blob (NSKeyedArchiver/typedstream format)
+fn extract_text_from_attributed_body(blob: &[u8]) -> Option<String> {
+    // The attributedBody uses Apple's typedstream format
+    // The actual text is usually stored after a length byte followed by UTF-8 content
+
+    if blob.len() < 50 {
+        return None;
+    }
+
+    let mut best_text = String::new();
+
+    // Scan for length-prefixed UTF-8 strings
+    let mut i = 0;
+    while i < blob.len().saturating_sub(4) {
+        // Look for potential string length byte followed by valid UTF-8
+        let potential_len = blob[i] as usize;
+        if potential_len > 3 && potential_len < 2000 && i + 1 + potential_len <= blob.len() {
+            if let Ok(s) = std::str::from_utf8(&blob[i + 1..i + 1 + potential_len]) {
+                // Check if it looks like real text (not metadata)
+                let has_letter = s.chars().any(|c| c.is_alphabetic());
+                let is_clean = !s.contains("__kIM") &&
+                               !s.contains("NSMutable") &&
+                               !s.contains("NSAttributed") &&
+                               !s.contains("NSObject") &&
+                               !s.contains("NSData") &&
+                               !s.contains("NSKeyedArchiver") &&
+                               !s.contains("$archiver") &&
+                               !s.contains("$class") &&
+                               !s.contains("$version") &&
+                               !s.contains("NSDictionary") &&
+                               !s.contains("NSArray") &&
+                               !s.contains("NSValue") &&
+                               !s.contains("NSNumber") &&
+                               !s.contains("NSString") &&
+                               !s.contains("NS.rangeval") &&
+                               !s.contains("NS.range") &&
+                               !s.contains("NS.special") &&
+                               !s.contains("streamtyped") &&
+                               !s.contains("typedstream") &&
+                               !s.starts_with('+') &&
+                               !s.starts_with("bp:") &&
+                               !s.starts_with("p:") &&
+                               !s.starts_with("com.apple") &&
+                               !is_uuid_like(s) &&
+                               s.chars().all(|c| c >= ' ' || c == '\n' || c == '\r');
+
+                if has_letter && is_clean && s.len() > best_text.len() {
+                    best_text = s.trim().to_string();
+                }
+            }
+        }
+        i += 1;
+    }
+
+    if best_text.is_empty() || best_text.len() < 2 {
+        None
+    } else {
+        Some(best_text)
+    }
+}
 
 /// Look up a contact name by phone/email
 fn lookup_contact_name(identifier: &str, contacts: &HashMap<String, String>) -> Option<String> {
@@ -470,7 +551,8 @@ fn get_messages(options: Option<ExportOptions>, limit: Option<i64>) -> Result<Ve
         "SELECT m.ROWID, m.guid, m.text, m.date, m.is_from_me, COALESCE(m.handle_id, 0),
                 COALESCE(h.id, '') as contact_id,
                 m.cache_has_attachments,
-                cmj.chat_id
+                cmj.chat_id,
+                m.attributedBody
          FROM message m
          LEFT JOIN handle h ON m.handle_id = h.ROWID
          LEFT JOIN chat_message_join cmj ON m.ROWID = cmj.message_id
@@ -493,7 +575,50 @@ fn get_messages(options: Option<ExportOptions>, limit: Option<i64>) -> Result<Ve
 
             let is_from_me = row.get::<_, i64>(4)? == 1;
             let contact_identifier: String = row.get(6)?;
-            let text: Option<String> = row.get(2)?;
+            let raw_text: Option<String> = row.get(2)?;
+            let attributed_body: Option<Vec<u8>> = row.get(9).ok().flatten();
+
+            // Clean up text - filter out metadata/binary content
+            let mut text = raw_text.and_then(|t| {
+                // Skip if it looks like binary/metadata
+                if t.contains("__kIM") ||
+                   t.contains("NSMutable") ||
+                   t.contains("NSAttributed") ||
+                   t.contains("NSObject") ||
+                   t.contains("NSData") ||
+                   t.contains("NSKeyedArchiver") ||
+                   t.contains("$archiver") ||
+                   t.contains("$version") ||
+                   t.contains("streamtyped") ||
+                   t.contains("NS.rangeval") ||
+                   t.contains("NS.range") ||
+                   t.contains("NS.special") ||
+                   t.contains("NSNumber") ||
+                   t.contains("NSString") ||
+                   t.contains("NSDictionary") ||
+                   t.contains("NSArray") ||
+                   t.starts_with("\u{FFFC}") ||  // Object replacement character
+                   t.chars().take(10).any(|c| c < ' ' && c != '\n' && c != '\r' && c != '\t') ||
+                   // Skip if it's just a UUID (attachment reference)
+                   is_uuid_like(&t) {
+                    None
+                } else {
+                    // Also trim any leading/trailing object replacement characters
+                    let cleaned = t.trim_matches('\u{FFFC}').trim();
+                    if cleaned.is_empty() {
+                        None
+                    } else {
+                        Some(cleaned.to_string())
+                    }
+                }
+            });
+
+            // If text is empty, try to extract from attributedBody
+            if text.is_none() {
+                if let Some(ref blob) = attributed_body {
+                    text = extract_text_from_attributed_body(blob);
+                }
+            }
 
             // Resolve sender name
             let sender_name = if is_from_me {
@@ -564,11 +689,27 @@ fn get_messages(options: Option<ExportOptions>, limit: Option<i64>) -> Result<Ve
                     row.get::<_, Option<String>>(3)?,
                 ))
             }) {
+                // Get home directory for expanding ~ in paths
+                let home_dir = dirs::home_dir().map(|h| h.to_string_lossy().to_string());
+
                 for row in rows.flatten() {
                     let (msg_id, filename, mime_type, transfer_name) = row;
                     if let Some(msg) = messages.iter_mut().find(|m| m.id == msg_id) {
+                        // Expand ~ in filename path to actual home directory
+                        let expanded_filename = filename.map(|f| {
+                            if f.starts_with("~/") {
+                                if let Some(ref home) = home_dir {
+                                    f.replacen("~", home, 1)
+                                } else {
+                                    f
+                                }
+                            } else {
+                                f
+                            }
+                        });
+
                         msg.attachments.push(Attachment {
-                            filename,
+                            filename: expanded_filename,
                             mime_type,
                             transfer_name,
                         });
@@ -750,6 +891,7 @@ fn get_chats() -> Result<Vec<Chat>, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

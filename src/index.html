@@ -630,6 +630,11 @@
         .w-bar {height: 100%; background: linear-gradient(90deg, var(--blue-bubble), #0a6fd9); transition: width 0.3s;}
         .w-count {min-width: 35px; text-align: right; color: var(--text-secondary); font-size: 11px;}
 
+        .word-filter {display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 8px; background: var(--bg-primary); border-radius: 6px;}
+        .word-filter label {font-size: 12px; color: var(--text-secondary);}
+        .word-filter select {flex: 1; padding: 6px 8px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 4px; color: var(--text-primary); font-size: 12px; cursor: pointer;}
+        .word-filter select:hover {border-color: var(--blue-bubble);}
+
         .phrase {font-size: 12px; padding: 3px 0; color: var(--text-secondary);}
         .phrase b {color: var(--text-primary); font-weight: 600;}
 
@@ -2320,6 +2325,7 @@
             // === DATA STRUCTURES ===
             // Word analysis
             const wordFrequency = {};
+            const wordsByParticipant = {}; // participant -> {word -> count}
             const wordOverTime = {}; // word -> {month -> count}
             const nGrams2 = {}; // 2-word phrases
             const nGrams3 = {}; // 3-word phrases
@@ -2457,6 +2463,12 @@
                 words.forEach(word => {
                     wordFrequency[word] = (wordFrequency[word] || 0) + 1;
 
+                    // Track per participant
+                    if (!wordsByParticipant[msg.sender]) {
+                        wordsByParticipant[msg.sender] = {};
+                    }
+                    wordsByParticipant[msg.sender][word] = (wordsByParticipant[msg.sender][word] || 0) + 1;
+
                     if (!wordOverTime[word]) {
                         wordOverTime[word] = {};
                     }
@@ -2547,6 +2559,7 @@
             return {
                 // Word analysis
                 wordFrequency,
+                wordsByParticipant,
                 wordOverTime,
                 topWords,
                 nGrams2,
@@ -2616,11 +2629,21 @@
 
                 <div class="section" onclick="toggleSection(this)"><div class="section-title">🔤 Top Words<span class="arrow">▼</span></div><div class="section-body">`;
 
+            // Add participant filter dropdown
+            const participants = Object.keys(analysis.wordsByParticipant).filter(n => isValidSender(n)).sort();
+            html += `<div class="word-filter" onclick="event.stopPropagation()">
+                <label>Filter by: </label>
+                <select id="wordParticipantFilter" onchange="filterWordsByParticipant()">
+                    <option value="">Everyone</option>
+                    ${participants.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}
+                </select>
+            </div>`;
+            html += `<div id="topWordsList">`;
             analysis.topWords.slice(0, 30).forEach(([word, count]) => {
                 const pct = (count / analysis.topWords[0][1]) * 100;
                 html += `<div class="word-row"><span class="w-label">${escapeHtml(word)}</span><div class="w-bar-bg"><div class="w-bar" style="width:${pct}%"></div></div><span class="w-count">${count}</span></div>`;
             });
-            html += `</div></div>`;
+            html += `</div></div></div>`;
 
             html += `<div class="section" onclick="toggleSection(this)"><div class="section-title">💬 Common Phrases<span class="arrow">▼</span></div><div class="section-body" style="display:none">`;
             html += `<div class="sub-title">2-Word:</div>`;
@@ -2683,6 +2706,39 @@
                 body.style.display = 'none';
                 arrow.textContent = '▼';
             }
+        }
+
+        function filterWordsByParticipant() {
+            const conv = conversations[currentConversation];
+            if (!conv || !conv.analysis) return;
+
+            const filter = document.getElementById('wordParticipantFilter').value;
+            const container = document.getElementById('topWordsList');
+            if (!container) return;
+
+            let wordData;
+            if (filter && conv.analysis.wordsByParticipant[filter]) {
+                // Get words for selected participant
+                wordData = Object.entries(conv.analysis.wordsByParticipant[filter])
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 30);
+            } else {
+                // Show all words
+                wordData = conv.analysis.topWords.slice(0, 30);
+            }
+
+            if (wordData.length === 0) {
+                container.innerHTML = '<div style="color: var(--text-secondary); font-size: 12px; padding: 8px 0;">No words found</div>';
+                return;
+            }
+
+            const maxCount = wordData[0][1];
+            let html = '';
+            wordData.forEach(([word, count]) => {
+                const pct = (count / maxCount) * 100;
+                html += `<div class="word-row"><span class="w-label">${escapeHtml(word)}</span><div class="w-bar-bg"><div class="w-bar" style="width:${pct}%"></div></div><span class="w-count">${count}</span></div>`;
+            });
+            container.innerHTML = html;
         }
 
         function formatDuration(minutes) {
